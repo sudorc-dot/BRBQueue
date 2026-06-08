@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRBQueue · Complete System</title>
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Simple QR Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        /* ALL YOUR ORIGINAL STYLES - KEEP THEM EXACTLY AS THEY WERE */
+        .gradient-bg { background: linear-gradient(135deg, #35408E 0%, #1F2A6E 100%); }
+        .card-shadow { box-shadow: 0 10px 25px rgba(53, 64, 142, 0.15), 0 5px 10px rgba(53, 64, 142, 0.05); }
+        .drawer-item { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .drawer-item:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(53, 64, 142, 0.2); }
+        .screen-transition { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
+        .screen-transition.active { opacity: 1; transform: translateY(0); }
+        .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(53, 64, 142, 0.4); display:flex; align-items:center; justify-content:center; z-index:50; backdrop-filter: blur(3px); animation: fadeIn 0.3s ease-out; }
+        .modal-card { max-width:500px; width:90%; background:white; border-radius:1rem; padding:1.5rem; box-shadow:0 20px 30px rgba(53, 64, 142, 0.2); animation: slideUp 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .pulse-animation { animation: pulse 2s infinite; }
+        .bg-primary-dark { background-color: #35408E; }
+        .bg-primary-light { background-color: #5a68b8; }
+        .bg-accent-dark { background-color: #FFCA2C; }
+        .bg-accent-light { background-color: #ffe57f; }
+        .tab-active { border-bottom: 3px solid #35408E; font-weight: bold; color: #35408E; }
+        .qr-container { display: flex; align-items: center; justify-content: center; background: white; border-radius: 8px; overflow: hidden; padding: 8px; border: 2px solid #35408E; transition: all 0.3s ease; }
+        .qr-container:hover { transform: scale(1.05); box-shadow: 0 10px 20px rgba(53, 64, 142, 0.2); }
+        canvas { max-width: 100%; height: auto; display: block; }
+        .btn-primary { background-color: #35408E; color: white; transition: all 0.2s; }
+        .btn-primary:hover { background-color: #2a3370; transform: scale(1.05); }
+        .btn-accent { background-color: #FFCA2C; color: #333; transition: all 0.2s; }
+        .btn-accent:hover { background-color: #e6b528; transform: scale(1.05); }
+        .btn-outline { border: 2px solid #35408E; color: #35408E; transition: all 0.2s; }
+        .btn-outline:hover { background-color: #35408E; color: white; }
+        .refresh-icon { animation: spin 1s linear infinite; display: inline-block; }
+        .editable-time { cursor: pointer; transition: all 0.2s; font-family: monospace; letter-spacing: 2px; background: white; }
+        .editable-time:hover { background-color: #e5e7eb; transform: scale(1.02); }
+        .editable-time:focus { outline: 2px solid #35408E; outline-offset: 2px; background-color: white; }
+        .editable-timer { cursor: pointer; transition: all 0.2s; font-family: monospace; letter-spacing: 2px; }
+        .editable-timer:hover { background-color: #e5e7eb; transform: scale(1.02); }
+        .editable-timer:focus { outline: 2px solid #35408E; outline-offset: 2px; background-color: white; }
+        .floating { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .success-check { animation: checkmark 0.5s ease-in-out; }
+        @keyframes checkmark { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .waiting-message { background: linear-gradient(135deg, #fef3c7, #fde68a); border-left: 6px solid #FFCA2C; border-radius: 0.5rem; padding: 1rem; }
+        .schedule-highlight { background: linear-gradient(135deg, #e8eaff, #d1d9ff); border-left: 6px solid #FFCA2C; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 4px 6px rgba(53, 64, 142, 0.1); }
+        .error-field { border: 2px solid #ef4444 !important; background-color: #fef2f2 !important; }
+        .landscape-video { aspect-ratio: 16/9; width: 100%; }
+        .prof-department-badge { background: linear-gradient(135deg, #35408E, #5a68b8); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; display: inline-block; }
+        .status-available { background-color: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; display: inline-block; }
+        .status-unavailable { background-color: #ef4444; color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; display: inline-block; }
+        .status-warning { background-color: #f59e0b; color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; display: inline-block; }
+        .called-message { background: linear-gradient(135deg, #10b981, #059669); color: white; animation: pulse 2s infinite; }
+        .conflict-badge { background-color: #ef4444; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-left: 0.5rem; }
+        .submission-item { background: #f9fafb; border-left: 4px solid #35408E; transition: all 0.2s; }
+        .submission-item:hover { background: #f3f4f6; transform: translateX(5px); }
+        .queue-item { transition: all 0.2s; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        .schedule-item { background: white; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 0.5rem; transition: all 0.2s; }
+        .schedule-item:hover { background: #fef3c7; transform: translateX(5px); }
+        .schedule-item.active { background: #fef3c7; border-left: 4px solid #10b981; }
+        .time-card { background: white; border-radius: 0.75rem; transition: all 0.2s; }
+        .time-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(53, 64, 142, 0.1); }
+        .cancel-schedule-btn { transition: all 0.2s; }
+        .cancel-schedule-btn:hover { background-color: #ef4444 !important; color: white !important; transform: scale(1.05); }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4 font-sans">
+<div id="app-container" class="bg-white rounded-xl card-shadow w-full max-w-4xl p-8 lg:p-12 relative overflow-hidden">
+
+    <!-- ========== ALL YOUR HTML SECTIONS - KEEP THEM EXACTLY AS THEY WERE ========== -->
+    <!-- START SCREEN -->
+    <section id="start-screen" class="screen-transition active">
+        <div class="text-center py-12">
+            <i class="fas fa-graduation-cap text-7xl text-[#FFCA2C] mb-6 floating"></i>
+            <h1 class="text-5xl font-extrabold text-[#35408E] mb-4">Welcome Nationalian!</h1>
+            <p class="text-gray-600 text-xl mb-8">Submit your documents and requests for in-person consultations with ease with BRBQueue</p>
+            <button id="start-login-btn" class="btn-primary font-bold py-4 px-8 rounded-full text-xl shadow-lg pulse-animation">
+                <i class="fas fa-sign-in-alt mr-2"></i>Proceed to Login
+            </button>
+        </div>
+    </section>
+
+    <!-- LOGIN SCREEN -->
+    <section id="login-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6">Login to BRBQueue</h2>
+        <div class="flex border-b border-gray-300 max-w-md mx-auto mb-6">
+            <button id="prof-tab" class="tab-active flex-1 py-2 text-center text-lg font-semibold">Professor</button>
+            <button id="student-tab" class="flex-1 py-2 text-center text-lg text-gray-500 hover:text-[#35408E]">Student</button>
+        </div>
+        <div id="prof-login-form" class="max-w-md mx-auto bg-gray-50 p-8 rounded-lg shadow-inner">
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-semibold mb-2"><i class="fas fa-chalkboard-teacher mr-2 text-[#35408E]"></i>Professor ID</label>
+                <input type="text" id="prof-id-input" placeholder="e.g., prof1 or prof2" class="shadow-sm border rounded w-full py-3 px-4 focus:ring-2 focus:ring-[#35408E] focus:border-[#35408E] transition-all">
+                <p class="text-xs text-gray-500 mt-1">Use "prof1" (Dr. Santos) or "prof2" (Prof. Reyes)</p>
+            </div>
+            <button id="prof-login-btn" class="w-full btn-primary font-bold py-3 rounded-lg">Login as Professor</button>
+            <p id="prof-login-error" class="text-red-500 text-center mt-4 hidden"></p>
+        </div>
+        <div id="student-login-form" class="max-w-md mx-auto bg-gray-50 p-8 rounded-lg shadow-inner hidden">
+            <div class="mb-4"><label class="block text-gray-700 text-sm font-semibold mb-2"><i class="fas fa-user-graduate mr-2 text-[#35408E]"></i>Last Name</label><input type="text" id="student-last" placeholder="Dela Cruz" class="shadow-sm border rounded w-full py-3 px-4 focus:ring-2 focus:ring-[#35408E]" pattern="[A-Za-z\s]+" title="Letters only"><p class="text-xs text-gray-500 mt-1 error-message" id="last-error"></p></div>
+            <div class="mb-4"><label class="block text-gray-700 text-sm font-semibold mb-2">First Name</label><input type="text" id="student-first" placeholder="Juan" class="shadow-sm border rounded w-full py-3 px-4 focus:ring-2 focus:ring-[#35408E]" pattern="[A-Za-z\s]+" title="Letters only"><p class="text-xs text-gray-500 mt-1 error-message" id="first-error"></p></div>
+            <div class="mb-6"><label class="block text-gray-700 text-sm font-semibold mb-2">Middle Initial</label><input type="text" id="student-middle" placeholder="M" maxlength="2" class="shadow-sm border rounded w-full py-3 px-4 focus:ring-2 focus:ring-[#35408E]" pattern="[A-Za-z]{1,2}" title="1-2 letters only"><p class="text-xs text-gray-500 mt-1 error-message" id="middle-error"></p></div>
+            <button id="student-login-btn" class="w-full btn-primary font-bold py-3 rounded-lg">Login as Student</button>
+            <p id="student-login-error" class="text-red-500 text-center mt-4 hidden"></p>
+        </div>
+        <div class="text-center mt-6"><button id="back-to-start-login" class="text-gray-500 hover:text-[#35408E] transition-colors"><i class="fas fa-arrow-left mr-1"></i> Back to Welcome</button></div>
+    </section>
+
+    <!-- PROFESSOR DASHBOARD -->
+    <section id="prof-dashboard" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Professor Dashboard</h2>
+        <p class="text-center text-gray-500 mb-2">Welcome, <span id="prof-name-display" class="font-semibold text-[#35408E]"></span></p>
+        <p class="text-center text-sm mb-4"><span class="prof-department-badge" id="prof-department-display">SET Department | Computer Engineering</span></p>
+        <div class="max-w-3xl mx-auto mb-6 bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4"><i class="fas fa-archive mr-2 text-[#35408E]"></i> Drawer Management</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button id="prof-reserve-drawer-btn" class="flex items-center justify-center gap-3 p-5 btn-primary rounded-xl"><i class="fas fa-box-open text-2xl"></i><span class="text-xl font-semibold">Reserve Drawer</span></button>
+                <button id="prof-claim-submissions-btn" class="flex items-center justify-center gap-3 p-5 btn-primary rounded-xl"><i class="fas fa-hand-holding-box text-2xl"></i><span class="text-xl font-semibold">Claim Submissions</span></button>
+            </div>
+        </div>
+        <div class="max-w-3xl mx-auto mb-6 bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#FFCA2C] hover:shadow-xl transition-all">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4"><i class="fas fa-clock mr-2 text-[#FFCA2C]"></i> Consultation Hours</h3>
+            <button id="prof-open-hours-btn" class="w-full btn-accent font-bold py-4 rounded-xl flex items-center justify-center gap-3 text-xl"><i class="fas fa-calendar-alt text-2xl"></i><span>Manage Consultation Hours</span></button>
+            <div id="prof-schedule" class="mt-4 p-4 bg-white rounded-lg border border-gray-200 schedule-highlight"><h4 class="font-semibold text-gray-700 mb-2">Your Active Schedule:</h4><div id="schedule-list" class="text-sm space-y-1 max-h-32 overflow-y-auto"><p class="text-gray-500 italic">No active consultations.</p></div></div>
+        </div>
+        <div class="max-w-3xl mx-auto bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4"><i class="fas fa-users mr-2 text-[#35408E]"></i> Queue Management</h3>
+            <div class="flex flex-col items-center space-y-4"><div class="text-center"><p class="text-gray-700 mb-2">Scan QR to manage queue</p><div id="prof-queue-qr" class="qr-container w-40 h-40 mx-auto"></div></div><button id="prof-go-to-queue-btn" class="btn-primary font-bold py-3 px-8 rounded-lg w-full"><i class="fas fa-arrow-right mr-2"></i>Go to Queue Management</button></div>
+        </div>
+        <div class="text-center mt-8"><button id="prof-logout" class="text-gray-600 hover:text-red-500 font-semibold transition-colors"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button></div>
+    </section>
+
+    <!-- PROFESSOR QUEUE MANAGEMENT VIEW -->
+    <section id="prof-queue-management" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Queue Management</h2>
+        <p class="text-center text-gray-500 mb-6">Professor: <span id="manage-prof-name" class="font-semibold text-[#35408E]"></span></p>
+        <div class="max-w-2xl mx-auto bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold text-gray-700">Current Queue</h3><div class="text-sm bg-[#35408E] text-white py-1 px-3 rounded-full"><span id="queue-count">0</span> waiting</div></div>
+            <div id="queue-list" class="space-y-3 max-h-96 overflow-y-auto mb-4"><p class="text-center text-gray-500 py-8">Loading queue...</p></div>
+            <div class="flex gap-3"><button id="call-next-btn" class="flex-1 btn-accent font-bold py-3 rounded-lg"><i class="fas fa-user-check mr-2"></i>Call Next Student</button><button id="refresh-queue-btn" class="bg-gray-200 text-gray-800 py-3 px-4 rounded-lg hover:bg-gray-300 transition-all"><i class="fas fa-sync-alt" id="refresh-icon"></i></button></div>
+            <button id="back-to-prof-dash-from-queue" class="w-full btn-outline font-bold py-3 px-6 rounded-lg mt-4"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button>
+        </div>
+    </section>
+
+    <!-- STUDENT QUEUE TRACKING VIEW -->
+    <section id="student-queue-tracking" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Queue Status</h2>
+        <div class="max-w-md mx-auto bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all">
+            <div class="text-center mb-6"><p class="text-gray-600">Professor: <span id="track-prof-name" class="font-semibold text-[#35408E]"></span></p><p class="text-gray-600">Student: <span id="track-student-name" class="font-semibold"></span></p></div>
+            <div class="text-center mb-6"><div class="text-6xl font-bold text-[#35408E] mb-2" id="track-position">--</div><p class="text-gray-600">Your Position in Queue</p></div>
+            <div class="bg-blue-50 p-4 rounded-lg mb-4"><div class="flex justify-between text-sm"><span>Consultation Ends:</span><span class="font-semibold" id="track-end">--:--</span></div></div>
+            <div id="waiting-for-call" class="hidden waiting-message p-4 rounded-lg font-bold text-center mb-4 border-2 border-yellow-400"><i class="fas fa-hourglass-half mr-2"></i>You are next in line. Please wait for the professor to call you.</div>
+            <button id="back-to-student-dash-from-tracking" class="w-full btn-outline font-bold py-3 px-6 rounded-lg mt-4"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button>
+        </div>
+    </section>
+
+    <!-- STUDENT SUBMISSION INSTRUCTIONS -->
+    <section id="student-submission-instructions" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-file-alt mr-2"></i> Document Submission</h2>
+        <div class="max-w-4xl mx-auto space-y-6">
+            <div class="bg-gray-900 rounded-2xl overflow-hidden shadow-xl landscape-video"><div class="relative w-full h-full"><div class="absolute inset-0 flex items-center justify-center bg-gray-800"><i class="fas fa-play-circle text-6xl text-[#FFCA2C] opacity-50"></i><p class="absolute bottom-4 left-4 text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">Submission Instructions Video</p></div></div></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all md:col-span-1"><h3 class="text-xl font-semibold text-gray-700 mb-4"><i class="fas fa-archive mr-2 text-[#35408E]"></i> Drawer Status</h3><div class="space-y-4"><div><p class="text-sm text-gray-500">Status</p><div id="drawer-status-container"><span id="drawer-status" class="status-available">Available</span></div></div><div><p class="text-sm text-gray-500">Professor</p><p class="font-semibold" id="instruction-prof-name">Loading...</p></div><div><p class="text-sm text-gray-500">Drawer Number</p><p class="font-semibold" id="instruction-drawer-number">--</p></div><div><p class="text-sm text-gray-500">Available Until</p><p class="font-semibold" id="drawer-until">--:--</p></div><div><p class="text-sm text-gray-500">Submission Time</p><p class="font-semibold" id="submission-time">--:--</p></div></div></div>
+                <div class="bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#FFCA2C] hover:shadow-xl transition-all md:col-span-2"><h3 class="text-xl font-semibold text-gray-700 mb-4"><i class="fas fa-list-ol mr-2 text-[#FFCA2C]"></i> Instructions</h3><div class="space-y-4"><div class="flex items-start gap-4"><div class="bg-[#35408E] text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">1</div><p class="text-gray-700">Open the lid of the system</p></div><div class="flex items-start gap-4"><div class="bg-[#35408E] text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">2</div><p class="text-gray-700">Place your document submission neatly on the tray inside</p></div><div class="flex items-start gap-4"><div class="bg-[#35408E] text-white w-8 h-8 rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div><p class="text-gray-700">Gently close the lid</p></div></div><div class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200"><p class="text-sm text-yellow-800"><i class="fas fa-info-circle mr-1"></i> Please ensure the lid is properly closed to secure your submission</p></div></div>
+            </div>
+            <div class="text-center mt-6"><button id="back-to-student-dash-from-instructions" class="btn-outline font-bold py-3 px-8 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button></div>
+        </div>
+    </section>
+
+    <!-- PROFESSOR RESERVE DRAWER SCREEN -->
+    <section id="prof-reserve-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-box-open mr-2"></i> Reserve a Drawer</h2>
+        <div class="max-w-3xl mx-auto"><div class="flex justify-between items-center mb-4"><p class="text-lg font-semibold">Available Drawers</p><p id="available-drawers-count" class="bg-green-100 text-green-800 py-1 px-3 rounded-full">0 available</p></div><div id="drawers-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div></div>
+        <div class="text-center mt-8"><button id="back-to-prof-dashboard-reserve" class="btn-outline font-bold py-3 px-6 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button></div>
+    </section>
+
+    <!-- PROFESSOR CLAIM SUBMISSIONS SCREEN -->
+    <section id="prof-claim-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-hand-holding-box mr-2"></i> Claim Submissions</h2>
+        <div id="claim-drawers-list" class="max-w-3xl mx-auto space-y-4"></div>
+        <div class="text-center mt-6"><button id="back-to-prof-dashboard-claim" class="btn-outline font-bold py-3 px-6 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back</button></div>
+    </section>
+
+    <!-- PROFESSOR MANAGE CONSULTATION HOURS -->
+    <section id="prof-open-hours-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-clock mr-2 text-[#FFCA2C]"></i> Manage Consultation Hours</h2>
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#FFCA2C] mb-6">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2"><i class="fas fa-plus-circle text-[#FFCA2C]"></i>Add New Consultation Hours</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4"><button class="add-consult-duration btn-primary py-2 rounded-lg text-sm font-semibold" data-min="15">+15 min</button><button class="add-consult-duration btn-primary py-2 rounded-lg text-sm font-semibold" data-min="30">+30 min</button><button class="add-consult-duration btn-primary py-2 rounded-lg text-sm font-semibold" data-min="45">+45 min</button><button class="add-consult-duration btn-primary py-2 rounded-lg text-sm font-semibold" data-min="60">+60 min</button></div>
+                <div class="flex gap-3 mb-4"><button id="consult-undo" class="flex-1 bg-gray-500 text-white py-2 rounded-lg"><i class="fas fa-undo mr-2"></i>Undo</button><button id="consult-clear" class="flex-1 bg-red-400 text-white py-2 rounded-lg"><i class="fas fa-times mr-2"></i>Clear</button></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"><div><p class="text-sm text-gray-600 mb-1">Start Time (click to edit):</p><div id="consult-start-time" class="editable-time text-center bg-white border-2 border-[#35408E] rounded-lg py-3 text-2xl font-mono" contenteditable="true">--:--</div></div><div><p class="text-sm text-gray-600 mb-1">End Time (click to edit):</p><div id="consult-end-time" class="editable-time text-center bg-white border-2 border-[#35408E] rounded-lg py-3 text-2xl font-mono" contenteditable="true">--:--</div></div></div>
+                <div class="flex justify-between items-center text-sm bg-blue-50 p-3 rounded-lg mb-4"><span>Duration: <span id="duration-calc" class="font-mono font-bold">0</span> minutes</span><span>Current Time: <span id="current-time-display" class="font-mono">--:--</span></span></div>
+                <div id="schedule-conflict-warning" class="hidden mb-4 p-3 bg-red-100 text-red-800 rounded-lg border border-red-400 text-sm"><i class="fas fa-exclamation-triangle mr-2"></i><span id="conflict-message"></span></div>
+                <button id="consult-confirm-btn" class="w-full btn-accent font-bold py-3 rounded-lg">Open Consultation</button>
+            </div>
+            <div class="bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E]"><h3 class="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2"><i class="fas fa-list-ul text-[#35408E]"></i>Your Consultation Schedule</h3><div id="upcoming-schedule-list" class="max-h-96 overflow-y-auto space-y-2"><div class="text-center text-gray-500 py-8"><i class="fas fa-calendar-day text-4xl mb-2 opacity-50"></i><p>No consultations scheduled</p></div></div></div>
+        </div>
+        <div class="text-center mt-6"><button id="back-to-prof-dashboard-open" class="btn-outline font-bold py-3 px-6 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button></div>
+    </section>
+
+    <!-- RESERVE DRAWER MODAL -->
+    <div id="reserve-drawer-modal" class="modal-overlay hidden"><div class="modal-card"><h3 class="text-2xl font-bold mb-4 text-[#35408E]">Reserve Drawer <span id="modal-drawer-number"></span></h3><div class="mb-4"><div class="grid grid-cols-2 gap-2 mb-3"><button class="modal-duration btn-primary py-2 rounded" data-min="15">+15 min</button><button class="modal-duration btn-primary py-2 rounded" data-min="30">+30 min</button><button class="modal-duration btn-primary py-2 rounded" data-min="45">+45 min</button><button class="modal-duration btn-primary py-2 rounded" data-min="60">+60 min</button></div><div class="flex gap-2 mb-3"><button id="modal-undo" class="flex-1 bg-gray-500 text-white py-1 rounded text-sm">Undo</button><button id="modal-clear" class="flex-1 bg-red-400 text-white py-1 rounded text-sm">Clear</button></div><div class="mb-2"><p class="text-sm text-gray-600 mb-1">Duration (click to edit):</p><div id="modal-timer" class="editable-timer text-center bg-gray-100 p-2 rounded text-2xl font-mono" contenteditable="true">00:00:00</div></div><p class="text-xs text-gray-600 text-center">Ends at <span id="modal-end-time">--:--</span></p></div><div class="flex gap-3"><button id="modal-confirm-reserve" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Confirm</button><button id="modal-cancel-reserve" class="flex-1 bg-gray-300 py-2 rounded-lg">Cancel</button></div></div></div>
+
+    <!-- STUDENT DASHBOARD -->
+    <section id="student-dashboard" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Student Dashboard</h2>
+        <p class="text-center text-gray-500 mb-6">Hello, <span id="student-name-display" class="font-semibold text-[#35408E]"></span></p>
+        <div class="max-w-3xl mx-auto space-y-6">
+            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex justify-between items-center border-l-4 border-[#FFCA2C] hover:shadow-xl transition-all"><div><h3 class="text-xl font-semibold text-gray-700"><i class="fas fa-users mr-2 text-[#FFCA2C]"></i> In-Person Consultations</h3><p class="text-sm text-gray-500">Queue for professor consultations</p></div><button id="student-inperson-btn" class="btn-accent font-bold py-3 px-8 rounded-xl w-48">Request Consultation</button></div>
+            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex justify-between items-center border-l-4 border-[#35408E] hover:shadow-xl transition-all"><div><h3 class="text-xl font-semibold text-gray-700"><i class="fas fa-file-alt mr-2 text-[#35408E]"></i> Submit Document</h3><p class="text-sm text-gray-500">Submit to professors with open drawers</p></div><button id="student-submit-btn" class="btn-primary font-bold py-3 px-8 rounded-xl w-48">Go to Submit</button></div>
+        </div>
+        <div class="text-center mt-8"><button id="student-logout" class="text-gray-600 hover:text-red-500 font-semibold transition-colors"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button></div>
+    </section>
+
+    <!-- STUDENT IN-PERSON SCREEN -->
+    <section id="student-inperson-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-users mr-2 text-[#FFCA2C]"></i> Request Consultation</h2>
+        <p class="text-center text-sm text-gray-500 mb-4">Professors currently available:</p>
+        <div id="available-prof-list" class="max-w-md mx-auto space-y-4 max-h-96 overflow-y-auto"></div>
+        <div id="student-qr-container" class="max-w-md mx-auto mt-6 hidden"><div class="bg-gray-50 p-6 rounded-2xl shadow-md border-l-4 border-[#35408E] hover:shadow-xl transition-all"><h3 class="text-xl font-semibold text-gray-700 mb-3"><i class="fas fa-qrcode mr-2 text-[#35408E]"></i> Your Queue QR Code</h3><p class="text-sm text-gray-500 mb-3">Scan to track your position in real-time</p><div class="flex justify-center"><div id="student-queue-qr" class="qr-container w-40 h-40"></div></div><p id="student-position-display" class="text-base text-center mt-3 font-semibold text-[#35408E]"></p><button id="view-queue-status-btn" class="mt-4 w-full btn-primary py-3 rounded-lg text-base hover:scale-105 transition font-medium"><i class="fas fa-clock mr-2"></i> View Queue Status</button><button id="leave-queue-btn" class="mt-2 w-full bg-red-100 text-red-600 py-3 rounded-lg text-base hover:bg-red-200 transition font-medium"><i class="fas fa-times mr-2"></i> Leave Queue</button></div></div>
+        <div class="text-center mt-8"><button id="back-to-student-dash-inperson" class="btn-outline font-bold py-3 px-6 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back to Dashboard</button></div>
+    </section>
+
+    <!-- STUDENT SUBMIT SCREEN -->
+    <section id="student-submit-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6"><i class="fas fa-file-alt mr-2"></i> Submit Document</h2>
+        <p class="text-center text-sm text-gray-500 mb-4">Professors accepting submissions:</p>
+        <div id="available-drawer-prof-list" class="max-w-md mx-auto space-y-4 max-h-96 overflow-y-auto"></div>
+        <div class="text-center mt-8"><button id="back-to-student-dash-submit" class="btn-outline font-bold py-3 px-6 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> Back</button></div>
+    </section>
+
+    <!-- ERROR PAGE -->
+    <section id="error-page" class="screen-transition hidden"><div class="text-center py-12"><i class="fas fa-exclamation-triangle text-7xl text-red-500 mb-6 floating"></i><h1 class="text-4xl font-extrabold text-gray-800 mb-4">Oops!</h1><p id="error-message-text" class="text-gray-600 text-xl mb-8">Something went wrong.</p><button id="error-back-home" class="btn-primary font-bold py-4 px-8 rounded-full text-xl shadow-lg"><i class="fas fa-home mr-2"></i>Return Home</button></div></section>
+
+    <!-- MODALS -->
+    <div id="action-complete-modal" class="modal-overlay hidden"><div class="modal-card"><div class="text-center mb-4"><i class="fas fa-check-circle text-6xl text-green-500 mb-4 success-check"></i><h3 id="action-complete-title" class="text-2xl font-bold text-[#35408E] mb-2">Success!</h3><p id="action-complete-message" class="text-gray-700 mb-6"></p></div><div class="flex gap-3"><button id="action-complete-dashboard" class="flex-1 btn-primary py-3 rounded-lg"><i class="fas fa-tachometer-alt mr-2"></i>Dashboard</button><button id="action-complete-logout" class="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button></div></div></div>
+    <div id="warning-modal" class="modal-overlay hidden"><div class="modal-card"><div class="text-center mb-4"><i class="fas fa-exclamation-triangle text-6xl text-yellow-500 mb-4"></i><h3 id="warning-modal-title" class="text-2xl font-bold text-[#35408E] mb-2">Warning</h3><p id="warning-modal-message" class="text-gray-700 mb-6"></p></div><div class="flex gap-3"><button id="warning-modal-cancel" class="flex-1 bg-gray-300 py-3 rounded-lg">Cancel</button><button id="warning-modal-proceed" class="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition">Proceed Anyway</button></div></div></div>
+    <div id="called-modal" class="modal-overlay hidden"><div class="modal-card called-message"><div class="text-center mb-4"><i class="fas fa-bell text-6xl text-white mb-4"></i><h3 class="text-2xl font-bold text-white mb-2">You've Been Called!</h3><p id="called-modal-message" class="text-white mb-6">The professor is ready to see you.</p></div><button id="called-modal-ok" class="w-full bg-white text-[#35408E] py-3 rounded-lg font-bold hover:bg-gray-100 transition">OK</button></div></div>
+    <div id="removed-modal" class="modal-overlay hidden"><div class="modal-card bg-red-50"><div class="text-center mb-4"><i class="fas fa-times-circle text-6xl text-red-600 mb-4"></i><h3 class="text-2xl font-bold text-[#35408E] mb-2">Removed from Queue</h3><p id="removed-modal-message" class="text-gray-700 mb-6">The professor has removed you from the queue.</p></div><button id="removed-modal-ok" class="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition">OK</button></div></div>
+    <div id="material-modal" class="modal-overlay hidden"><div class="modal-card"><div class="flex justify-between items-start mb-4"><h3 id="material-modal-title" class="text-2xl font-bold text-[#35408E]"></h3><button id="material-modal-close" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button></div><p id="material-modal-message" class="text-gray-700 mb-6"></p><div class="flex gap-3"><button id="material-modal-confirm" class="flex-1 bg-green-600 text-white py-2 rounded-lg">Confirm</button><button id="material-modal-cancel" class="flex-1 bg-gray-300 py-2 rounded-lg">Cancel</button></div></div></div>
+    <div id="alert-modal" class="modal-overlay hidden"><div class="modal-card"><div class="flex justify-between items-start mb-4"><h3 id="alert-modal-title" class="text-2xl font-bold text-[#35408E]"></h3><button id="alert-modal-close" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button></div><p id="alert-modal-message" class="text-gray-700 mb-6"></p><button id="alert-modal-ok" class="w-full btn-primary py-2 rounded-lg">OK</button></div></div>
+    <div id="confirmation-modal" class="modal-overlay hidden"><div class="modal-card"><h3 id="confirmation-title" class="text-2xl font-bold mb-4 text-[#35408E]"></h3><p id="confirmation-message" class="text-gray-700 mb-6"></p><div class="flex gap-3"><button id="confirmation-yes" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Yes</button><button id="confirmation-no" class="flex-1 bg-gray-300 py-2 rounded-lg">No</button></div></div></div>
+
+    <audio id="position-sound" preload="auto"><source src="data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVQAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f38=" type="audio/wav"></audio>
+
+    <script>
+        // ========== FIREBASE CONFIGURATION ==========
+        // REPLACE THIS WITH YOUR ACTUAL FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ========== ALL YOUR ORIGINAL JAVASCRIPT FUNCTIONS GO HERE ==========
+        // I'll rewrite the data functions to use Firebase instead of localStorage
+        // Keep all your UI functions (showScreen, modals, etc.) exactly the same
+        
+        // ========== GLOBAL STATE ==========
+        let currentUser = null;
+        let currentStudentProf = null;
+        let positionListeners = {};
+        let queueListener = null;
+        let drawersListener = null;
+        let professorsListener = null;
+
+        // Default data for initialization
+        const defaultProfessors = {
+            prof1: { id: 'prof1', name: 'Dr. Santos', department: 'SET Department', section: 'Computer Engineering', consultations: [] },
+            prof2: { id: 'prof2', name: 'Prof. Reyes', department: 'SET Department', section: 'Electronics Engineering', consultations: [] }
+        };
+
+        const defaultDrawers = {};
+        for (let i = 1; i <= 6; i++) {
+            defaultDrawers[i] = { id: i, reservedByProf: null, reservedUntil: null, submissions: [] };
+        }
+
+        // ========== INITIALIZE FIREBASE DATA ==========
+        function initFirebaseData() {
+            // Initialize professors if empty
+            db.ref('professors').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    db.ref('professors').set(defaultProfessors);
+                }
+            });
+            
+            // Initialize drawers if empty
+            db.ref('drawers').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    db.ref('drawers').set(defaultDrawers);
+                }
+            });
+        }
+
+        // ========== READ DATA FROM FIREBASE ==========
+        function loadProfessors(callback) {
+            db.ref('professors').on('value', (snapshot) => {
+                const data = snapshot.val() || defaultProfessors;
+                if (callback) callback(data);
+            });
+        }
+
+        function loadDrawers(callback) {
+            db.ref('drawers').on('value', (snapshot) => {
+                const data = snapshot.val() || defaultDrawers;
+                if (callback) callback(data);
+            });
+        }
+
+        function loadQueue(profId, callback) {
+            db.ref(`queues/${profId}`).on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                const queueArray = Object.values(data).sort((a, b) => a.requestTime - b.requestTime);
+                if (callback) callback(queueArray);
+            });
+        }
+
+        // ========== WRITE DATA TO FIREBASE ==========
+        function saveQueue(profId, queueArray, callback) {
+            const queueObj = {};
+            queueArray.forEach((item, index) => {
+                queueObj[`student_${item.requestTime}_${index}`] = item;
+            });
+            db.ref(`queues/${profId}`).set(queueObj, callback);
+        }
+
+        function addToQueue(profId, studentName, callback) {
+            const newEntry = {
+                studentName: studentName,
+                requestTime: Date.now()
+            };
+            const newKey = `student_${newEntry.requestTime}_${Math.random()}`;
+            db.ref(`queues/${profId}/${newKey}`).set(newEntry, callback);
+        }
+
+        function removeFromQueue(profId, studentName, callback) {
+            db.ref(`queues/${profId}`).once('value', (snapshot) => {
+                const queue = snapshot.val() || {};
+                let foundKey = null;
+                for (let key in queue) {
+                    if (queue[key].studentName === studentName) {
+                        foundKey = key;
+                        break;
+                    }
+                }
+                if (foundKey) {
+                    db.ref(`queues/${profId}/${foundKey}`).remove(callback);
+                } else if (callback) callback();
+            });
+        }
+
+        function callNextStudent(profId, callback) {
+            db.ref(`queues/${profId}`).once('value', (snapshot) => {
+                const queue = snapshot.val() || {};
+                const entries = Object.entries(queue).sort((a, b) => a[1].requestTime - b[1].requestTime);
+                if (entries.length === 0) {
+                    if (callback) callback(null);
+                    return;
+                }
+                const [firstKey, firstStudent] = entries[0];
+                db.ref(`queues/${profId}/${firstKey}`).remove(() => {
+                    if (callback) callback(firstStudent);
+                });
+            });
+        }
+
+        // ========== PROFESSOR FUNCTIONS ==========
+        function updateProfDashboard() {
+            if (!currentUser || currentUser.role !== 'prof') return;
+            db.ref(`professors/${currentUser.id}/consultations`).on('value', (snapshot) => {
+                const consultations = snapshot.val() || [];
+                const now = Date.now();
+                const active = consultations.filter(c => c.endTime > now);
+                const scheduleDiv = document.getElementById('schedule-list');
+                if (scheduleDiv) {
+                    if (active.length === 0) {
+                        scheduleDiv.innerHTML = '<p class="text-gray-500 italic">No active consultations.</p>';
+                    } else {
+                        scheduleDiv.innerHTML = active.map(c => {
+                            const start = new Date(c.startTime);
+                            const end = new Date(c.endTime);
+                            const formatTime = (date) => {
+                                const hours = date.getHours();
+                                const minutes = date.getMinutes();
+                                const period = hours >= 12 ? 'PM' : 'AM';
+                                const displayHours = hours % 12 || 12;
+                                return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                            };
+                            return `<p class="text-gray-700">• ${formatTime(start)} – ${formatTime(end)} (${c.duration} min)</p>`;
+                        }).join('');
+                    }
+                }
+            });
+        }
+
+        // ========== UTILITY FUNCTIONS (Keep your originals) ==========
+        function getBaseUrl() {
+            return window.location.protocol + '//' + window.location.host + window.location.pathname;
+        }
+
+        function playPositionSound() {
+            const audio = document.getElementById('position-sound');
+            if (audio) audio.play().catch(e => console.log('Sound play failed:', e));
+        }
+
+        function formatTimeWithAMPM(hours, minutes) {
+            const period = hours >= 12 ? 'PM' : 'AM';
+            let displayHours = hours % 12;
+            displayHours = displayHours === 0 ? 12 : displayHours;
+            return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+        }
+
+        function getCurrentTimeHM() {
+            const now = new Date();
+            return { hours: now.getHours(), minutes: now.getMinutes() };
+        }
+
+        // ========== MODAL FUNCTIONS (Keep your originals) ==========
+        function showCalledModal(profName) {
+            const modal = document.getElementById('called-modal');
+            const messageEl = document.getElementById('called-modal-message');
+            if (modal && messageEl) {
+                messageEl.textContent = `Professor ${profName} is ready to see you.`;
+                const okBtn = document.getElementById('called-modal-ok');
+                const newOkBtn = okBtn.cloneNode(true);
+                okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+                newOkBtn.addEventListener('click', () => modal.classList.add('hidden'));
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function showRemovedModal(profName) {
+            const modal = document.getElementById('removed-modal');
+            const messageEl = document.getElementById('removed-modal-message');
+            if (modal && messageEl) {
+                messageEl.textContent = `Professor ${profName} has removed you from the queue.`;
+                const okBtn = document.getElementById('removed-modal-ok');
+                const newOkBtn = okBtn.cloneNode(true);
+                okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+                newOkBtn.addEventListener('click', () => modal.classList.add('hidden'));
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function showActionCompleteModal(message, dashboardScreen) {
+            const messageEl = document.getElementById('action-complete-message');
+            const dashboardBtn = document.getElementById('action-complete-dashboard');
+            const logoutBtn = document.getElementById('action-complete-logout');
+            if (messageEl) messageEl.textContent = message;
+            if (dashboardBtn && logoutBtn) {
+                const newDashboardBtn = dashboardBtn.cloneNode(true);
+                const newLogoutBtn = logoutBtn.cloneNode(true);
+                dashboardBtn.parentNode.replaceChild(newDashboardBtn, dashboardBtn);
+                logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+                newDashboardBtn.addEventListener('click', () => {
+                    document.getElementById('action-complete-modal').classList.add('hidden');
+                    showScreen(dashboardScreen);
+                });
+                newLogoutBtn.addEventListener('click', () => {
+                    document.getElementById('action-complete-modal').classList.add('hidden');
+                    logout();
+                });
+            }
+            document.getElementById('action-complete-modal').classList.remove('hidden');
+        }
+
+        function showWarningModal(message, onProceed) {
+            const messageEl = document.getElementById('warning-modal-message');
+            const cancelBtn = document.getElementById('warning-modal-cancel');
+            const proceedBtn = document.getElementById('warning-modal-proceed');
+            if (messageEl) messageEl.textContent = message;
+            if (cancelBtn && proceedBtn) {
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                const newProceedBtn = proceedBtn.cloneNode(true);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                proceedBtn.parentNode.replaceChild(newProceedBtn, proceedBtn);
+                newCancelBtn.addEventListener('click', () => document.getElementById('warning-modal').classList.add('hidden'));
+                newProceedBtn.addEventListener('click', () => {
+                    document.getElementById('warning-modal').classList.add('hidden');
+                    if (onProceed) onProceed();
+                });
+            }
+            document.getElementById('warning-modal').classList.remove('hidden');
+        }
+
+        function showMaterialModal(title, message, onConfirm, onCancel) {
+            const titleEl = document.getElementById('material-modal-title');
+            const messageEl = document.getElementById('material-modal-message');
+            const confirmBtn = document.getElementById('material-modal-confirm');
+            const cancelBtn = document.getElementById('material-modal-cancel');
+            if (titleEl) titleEl.textContent = title;
+            if (messageEl) messageEl.textContent = message;
+            if (confirmBtn && cancelBtn) {
+                const newConfirmBtn = confirmBtn.cloneNode(true);
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                newConfirmBtn.addEventListener('click', () => {
+                    document.getElementById('material-modal').classList.add('hidden');
+                    if (onConfirm) onConfirm();
+                });
+                newCancelBtn.addEventListener('click', () => {
+                    document.getElementById('material-modal').classList.add('hidden');
+                    if (onCancel) onCancel();
+                });
+            }
+            document.getElementById('material-modal').classList.remove('hidden');
+        }
+
+        function showAlertModal(title, message) {
+            const titleEl = document.getElementById('alert-modal-title');
+            const messageEl = document.getElementById('alert-modal-message');
+            if (titleEl) titleEl.textContent = title;
+            if (messageEl) messageEl.textContent = message;
+            document.getElementById('alert-modal').classList.remove('hidden');
+        }
+
+        function showConfirmationModal(title, message, onYes, onNo) {
+            const titleEl = document.getElementById('confirmation-title');
+            const messageEl = document.getElementById('confirmation-message');
+            const yesBtn = document.getElementById('confirmation-yes');
+            const noBtn = document.getElementById('confirmation-no');
+            if (titleEl) titleEl.textContent = title;
+            if (messageEl) messageEl.textContent = message;
+            if (yesBtn && noBtn) {
+                const newYesBtn = yesBtn.cloneNode(true);
+                const newNoBtn = noBtn.cloneNode(true);
+                yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+                noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+                newYesBtn.addEventListener('click', () => {
+                    document.getElementById('confirmation-modal').classList.add('hidden');
+                    if (onYes) onYes();
+                });
+                newNoBtn.addEventListener('click', () => {
+                    document.getElementById('confirmation-modal').classList.add('hidden');
+                    if (onNo) onNo();
+                });
+            }
+            document.getElementById('confirmation-modal').classList.remove('hidden');
+        }
+
+        // Close modal buttons
+        document.getElementById('material-modal-close')?.addEventListener('click', () => document.getElementById('material-modal').classList.add('hidden'));
+        document.getElementById('alert-modal-close')?.addEventListener('click', () => document.getElementById('alert-modal').classList.add('hidden'));
+        document.getElementById('alert-modal-ok')?.addEventListener('click', () => document.getElementById('alert-modal').classList.add('hidden'));
+
+        // ========== TIME EDITING HELPERS ==========
+        function setupEditableTime(element, onUpdate) {
+            if (!element) return;
+            element.addEventListener('input', (e) => {
+                let value = e.target.textContent;
+                value = value.replace(/[^0-9:]/g, '');
+                const parts = value.split(':');
+                if (parts.length > 2) value = parts.slice(0, 2).join(':');
+                if (parts[0] && parts[0].length > 2) parts[0] = parts[0].slice(0, 2);
+                if (parts[1] && parts[1].length > 2) parts[1] = parts[1].slice(0, 2);
+                value = parts.join(':');
+                e.target.textContent = value;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(e.target);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            });
+            element.addEventListener('blur', (e) => {
+                let timeStr = e.target.textContent.trim();
+                let hours = 0, minutes = 0;
+                const parts = timeStr.split(':');
+                if (parts[0]) hours = Math.min(parseInt(parts[0]) || 0, 23);
+                if (parts[1]) minutes = Math.min(parseInt(parts[1]) || 0, 59);
+                const formatted = hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
+                e.target.textContent = formatted;
+                if (onUpdate) onUpdate(hours, minutes);
+            });
+        }
+
+        function setupEditableTimer(timerElement, updateCallback) {
+            if (!timerElement) return;
+            timerElement.addEventListener('input', (e) => {
+                let value = e.target.textContent;
+                value = value.replace(/[^0-9:]/g, '');
+                const parts = value.split(':');
+                if (parts.length > 3) value = parts.slice(0, 3).join(':');
+                const newParts = value.split(':').map(p => p.length > 2 ? p.slice(0, 2) : p);
+                while (newParts.length < 3) newParts.push('');
+                value = newParts.join(':');
+                e.target.textContent = value;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(e.target);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            });
+            timerElement.addEventListener('blur', (e) => {
+                const timeText = e.target.textContent.trim();
+                const parts = timeText.split(':');
+                let hours = 0, minutes = 0, seconds = 0;
+                if (parts[0]) hours = Math.min(parseInt(parts[0]) || 0, 23);
+                if (parts[1]) minutes = Math.min(parseInt(parts[1]) || 0, 59);
+                if (parts[2]) seconds = Math.min(parseInt(parts[2]) || 0, 59);
+                const totalMinutes = hours * 60 + minutes + (seconds >= 30 ? 1 : 0);
+                e.target.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                if (updateCallback && totalMinutes !== undefined) updateCallback(totalMinutes);
+            });
+            timerElement.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    timerElement.blur();
+                }
+            });
+        }
+
+        // ========== QR CODE GENERATOR ==========
+        function generateQRCode(containerId, text, size = 200, color = '#35408E') {
+            const container = document.getElementById(containerId);
+            if (!container) return false;
+            container.innerHTML = '';
+            try {
+                if (typeof qrcode === 'undefined') throw new Error('QR lib missing');
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                container.appendChild(canvas);
+                const qr = qrcode(0, 'H');
+                qr.addData(text);
+                qr.make();
+                const matrix = qr.getModuleCount();
+                const cellSize = size / matrix;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = color;
+                for (let row = 0; row < matrix; row++) {
+                    for (let col = 0; col < matrix; col++) {
+                        if (qr.isDark(row, col)) ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    }
+                }
+                return true;
+            } catch (error) {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center w-full h-full bg-gray-100 rounded-lg border-2 border-[#35408E] p-2" style="min-width: ${size}px; min-height: ${size}px;"><i class="fas fa-qrcode text-5xl text-[#35408E] mb-2"></i><div class="text-xs text-center text-gray-600 break-all">${text}</div></div>`;
+                return false;
+            }
+        }
+
+        // ========== URL HANDLING ==========
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                prof: params.get('prof'),
+                token: params.get('token'),
+                trackProf: params.get('trackProf'),
+                trackStudent: params.get('trackStudent'),
+                trackPos: params.get('trackPos'),
+                trackToken: params.get('trackToken')
+            };
+        }
+
+        // ========== SCREEN MANAGEMENT ==========
+        const screens = {
+            start: document.getElementById('start-screen'),
+            login: document.getElementById('login-screen'),
+            profDash: document.getElementById('prof-dashboard'),
+            profReserve: document.getElementById('prof-reserve-screen'),
+            profClaim: document.getElementById('prof-claim-screen'),
+            profOpenHours: document.getElementById('prof-open-hours-screen'),
+            profQueueManage: document.getElementById('prof-queue-management'),
+            studentQueueTrack: document.getElementById('student-queue-tracking'),
+            studentDash: document.getElementById('student-dashboard'),
+            studentInperson: document.getElementById('student-inperson-screen'),
+            studentSubmit: document.getElementById('student-submit-screen'),
+            studentInstructions: document.getElementById('student-submission-instructions'),
+            error: document.getElementById('error-page')
+        };
+
+        function showScreen(screenId) {
+            // Remove active class from all screens
+            Object.values(screens).forEach(s => { if (s) { s.classList.remove('active'); s.classList.add('hidden'); } });
+            const target = screens[screenId];
+            if (target) {
+                target.classList.remove('hidden');
+                setTimeout(() => target.classList.add('active'), 10);
+            }
+            
+            // Screen-specific setup
+            if (screenId === 'profDash' && currentUser?.role === 'prof') {
+                updateProfDashboard();
+                const token = 'prof_' + Date.now() + '_' + Math.random().toString(36).substring(2);
+                generateQRCode('prof-queue-qr', getBaseUrl() + '?prof=' + currentUser.id + '&token=' + token, 150);
+            }
+            if (screenId === 'profReserve') renderDrawersGrid();
+            if (screenId === 'profClaim') renderClaimScreen();
+            if (screenId === 'studentInperson') renderAvailableProfs();
+            if (screenId === 'studentSubmit') renderAvailableDrawerProfs();
+            if (screenId === 'profQueueManage' && currentUser) {
+                document.getElementById('manage-prof-name').textContent = currentUser.name;
+                loadQueueData(currentUser.id);
+                startQueueListener(currentUser.id);
+            }
+            if (screenId === 'profOpenHours') {
+                const now = getCurrentTimeHM();
+                const startTimeEl = document.getElementById('consult-start-time');
+                const endTimeEl = document.getElementById('consult-end-time');
+                if (startTimeEl) startTimeEl.textContent = now.hours.toString().padStart(2, '0') + ':' + now.minutes.toString().padStart(2, '0');
+                if (endTimeEl) endTimeEl.textContent = '00:00';
+                updateCurrentTime();
+                startCurrentTimeUpdater();
+                calculateDuration();
+                renderUpcomingSchedule();
+            }
+            if (screenId === 'studentQueueTrack' && currentStudentProf && currentUser?.role === 'student') {
+                startTracking(currentStudentProf, currentUser.name);
+            }
+        }
+
+        // ========== PROFESSOR QUEUE MANAGEMENT ==========
+        let currentQueueListener = null;
+        
+        function loadQueueData(profId) {
+            if (currentQueueListener) {
+                db.ref(`queues/${profId}`).off('value', currentQueueListener);
+            }
+            currentQueueListener = db.ref(`queues/${profId}`).on('value', (snapshot) => {
+                const queue = snapshot.val() || {};
+                const queueArray = Object.values(queue).sort((a, b) => a.requestTime - b.requestTime);
+                const queueList = document.getElementById('queue-list');
+                const queueCount = document.getElementById('queue-count');
+                if (queueCount) queueCount.textContent = queueArray.length;
+                if (queueList) {
+                    if (queueArray.length === 0) {
+                        queueList.innerHTML = '<p class="text-center text-gray-500 py-8">No students in queue.</p>';
+                        return;
+                    }
+                    queueList.innerHTML = queueArray.map((student, index) => {
+                        const waitTime = Math.floor((Date.now() - student.requestTime) / 60000);
+                        const waitText = waitTime < 1 ? 'just joined' : `waiting ${waitTime} min`;
+                        return `<div class="queue-item bg-white p-4 rounded-lg shadow border flex justify-between items-center hover:border-[#35408E] transition"><div><p class="font-semibold">${index + 1}. ${student.studentName}</p><p class="text-xs text-gray-500">${waitText}</p></div><button class="remove-student-btn bg-red-100 text-red-600 py-1 px-3 rounded text-sm hover:bg-red-200 transition" data-profid="${profId}" data-student="${student.studentName}">Remove</button></div>`;
+                    }).join('');
+                    
+                    document.querySelectorAll('.remove-student-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const profId = e.target.dataset.profid;
+                            const studentName = e.target.dataset.student;
+                            removeFromQueue(profId, studentName, () => {
+                                // Refresh is handled by Firebase listener
+                            });
+                        });
+                    });
+                }
+            });
+        }
+
+        function startQueueListener(profId) {
+            // Already handled in loadQueueData
+            loadQueueData(profId);
+        }
+
+        // ========== STUDENT QUEUE TRACKING ==========
+        let currentPositionListener = null;
+        
+        function startTracking(profId, studentName) {
+            if (currentPositionListener) {
+                db.ref(`queues/${profId}`).off('value', currentPositionListener);
+            }
+            
+            currentPositionListener = db.ref(`queues/${profId}`).on('value', (snapshot) => {
+                const queue = snapshot.val() || {};
+                const queueArray = Object.values(queue).sort((a, b) => a.requestTime - b.requestTime);
+                const position = queueArray.findIndex(s => s.studentName === studentName) + 1;
+                const trackPosition = document.getElementById('track-position');
+                const waitingForCall = document.getElementById('waiting-for-call');
+                
+                if (position === 0) {
+                    if (trackPosition) trackPosition.textContent = '--';
+                    if (waitingForCall) waitingForCall.classList.add('hidden');
+                    const prof = professorsList.find(p => p.id === profId);
+                    showRemovedModal(prof ? prof.name : '');
+                    if (currentPositionListener) {
+                        db.ref(`queues/${profId}`).off('value', currentPositionListener);
+                        currentPositionListener = null;
+                    }
+                    return;
+                }
+                
+                if (trackPosition) trackPosition.textContent = position;
+                
+                if (position === 1 && waitingForCall) waitingForCall.classList.remove('hidden');
+                else if (waitingForCall) waitingForCall.classList.add('hidden');
+                
+                // Get consultation end time
+                db.ref(`professors/${profId}/consultations`).once('value', (snap) => {
+                    const consultations = snap.val() || [];
+                    const active = consultations.find(c => c.endTime > Date.now());
+                    const trackEnd = document.getElementById('track-end');
+                    if (active && trackEnd) {
+                        const endDate = new Date(active.endTime);
+                        trackEnd.textContent = formatTimeWithAMPM(endDate.getHours(), endDate.getMinutes());
+                    }
+                });
+            });
+        }
+
+        // ========== PROFESSOR DASHBOARD UPDATE ==========
+        let professorsList = [];
+        
+        function updateProfDashboard() {
+            if (!currentUser || currentUser.role !== 'prof') return;
+            db.ref(`professors/${currentUser.id}/consultations`).on('value', (snapshot) => {
+                const consultations = snapshot.val() || [];
+                const now = Date.now();
+                const active = consultations.filter(c => c.endTime > now);
+                const scheduleDiv = document.getElementById('schedule-list');
+                if (scheduleDiv) {
+                    if (active.length === 0) {
+                        scheduleDiv.innerHTML = '<p class="text-gray-500 italic">No active consultations.</p>';
+                    } else {
+                        scheduleDiv.innerHTML = active.map(c => {
+                            const start = new Date(c.startTime);
+                            const end = new Date(c.endTime);
+                            return `<p class="text-gray-700">• ${formatTimeWithAMPM(start.getHours(), start.getMinutes())} – ${formatTimeWithAMPM(end.getHours(), end.getMinutes())} (${c.duration} min)</p>`;
+                        }).join('');
+                    }
+                }
+            });
+        }
+
+        // ========== DRAWERS FUNCTIONS ==========
+        function renderDrawersGrid() {
+            db.ref('drawers').on('value', (snapshot) => {
+                const drawers = snapshot.val() || defaultDrawers;
+                const grid = document.getElementById('drawers-grid');
+                if (!grid) return;
+                grid.innerHTML = '';
+                const available = Object.values(drawers).filter(d => !d.reservedByProf).length;
+                document.getElementById('available-drawers-count').textContent = available + ' available';
+                
+                Object.values(drawers).forEach(drawer => {
+                    const isReserved = drawer.reservedByProf !== null;
+                    const isMine = drawer.reservedByProf === currentUser?.id;
+                    let bgColor = isReserved ? (isMine ? 'bg-yellow-100 border-yellow-400' : 'bg-red-100 border-red-400') : 'bg-green-100 border-green-400';
+                    let statusText = isReserved ? (isMine ? 'Reserved by you' : `Reserved by ${drawer.reservedByProf}`) : 'Available';
+                    const div = document.createElement('div');
+                    div.className = `drawer-item p-4 rounded-xl shadow-md text-center flex flex-col items-center border-2 ${bgColor}`;
+                    div.innerHTML = `<i class="fas fa-box text-3xl mb-2 ${isReserved ? 'text-gray-500' : 'text-green-600'}"></i><h3 class="text-lg font-bold">Drawer #${drawer.id}</h3><p class="text-xs mb-1">${statusText}</p>${isReserved && isMine ? `<p class="text-xs">Submissions: ${drawer.submissions.length}</p>` : ''}${isReserved && drawer.reservedUntil ? `<p class="text-xs text-gray-500">Until: ${new Date(drawer.reservedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>` : ''}`;
+                    
+                    if (!isReserved) {
+                        const btn = document.createElement('button');
+                        btn.className = 'mt-2 btn-primary text-white text-sm py-1 px-3 rounded';
+                        btn.textContent = 'Reserve';
+                        btn.addEventListener('click', () => openReserveModal(drawer.id));
+                        div.appendChild(btn);
+                    } else if (isMine) {
+                        const btn = document.createElement('button');
+                        btn.className = 'mt-2 bg-red-500 text-white text-sm py-1 px-3 rounded';
+                        btn.textContent = 'Cancel';
+                        btn.addEventListener('click', () => {
+                            if (drawer.submissions.length > 0) {
+                                showWarningModal(`There are ${drawer.submissions.length} unclaimed submission(s) in Drawer #${drawer.id}. Cancelling will remove these submissions.`, () => {
+                                    showConfirmationModal('Confirm Cancellation', `Are you absolutely sure you want to cancel reservation for Drawer #${drawer.id}? All submissions will be lost.`, () => {
+                                        db.ref(`drawers/${drawer.id}`).update({
+                                            reservedByProf: null,
+                                            reservedUntil: null,
+                                            submissions: []
+                                        });
+                                        showActionCompleteModal('Drawer reservation cancelled successfully!', 'profDash');
+                                    });
+                                });
+                            } else {
+                                showConfirmationModal('Cancel Reservation', `Are you sure you want to cancel reservation for Drawer #${drawer.id}?`, () => {
+                                    db.ref(`drawers/${drawer.id}`).update({
+                                        reservedByProf: null,
+                                        reservedUntil: null,
+                                        submissions: []
+                                    });
+                                    showActionCompleteModal('Drawer reservation cancelled successfully!', 'profDash');
+                                });
+                            }
+                        });
+                        div.appendChild(btn);
+                    }
+                    grid.appendChild(div);
+                });
+            });
+        }
+
+        // Reserve Modal
+        let currentDrawerId = null, modalStack = [], modalTotal = 0;
+        const modalTimer = document.getElementById('modal-timer');
+        const modalEndTime = document.getElementById('modal-end-time');
+        
+        function updateModalTimerDisplay() {
+            const h = Math.floor(modalTotal / 60), m = modalTotal % 60;
+            if (modalTimer) modalTimer.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+            if (modalTotal > 0 && modalEndTime) {
+                const endDate = new Date(Date.now() + modalTotal * 60000);
+                modalEndTime.textContent = formatTimeWithAMPM(endDate.getHours(), endDate.getMinutes());
+            } else if (modalEndTime) modalEndTime.textContent = '--:--';
+        }
+        
+        function updateModalTotal(total) { modalTotal = total; modalStack = []; updateModalTimerDisplay(); }
+        if (modalTimer) setupEditableTimer(modalTimer, updateModalTotal);
+        
+        function openReserveModal(drawerId) {
+            currentDrawerId = drawerId;
+            document.getElementById('modal-drawer-number').textContent = drawerId;
+            modalTotal = 0;
+            updateModalTimerDisplay();
+            document.getElementById('reserve-drawer-modal').classList.remove('hidden');
+        }
+        
+        document.querySelectorAll('.modal-duration').forEach(btn => btn.addEventListener('click', (e) => { modalTotal += parseInt(e.target.dataset.min); updateModalTimerDisplay(); }));
+        document.getElementById('modal-undo')?.addEventListener('click', () => { if (modalStack.length) { modalTotal -= modalStack.pop(); if (modalTotal < 0) modalTotal = 0; updateModalTimerDisplay(); } });
+        document.getElementById('modal-clear')?.addEventListener('click', () => { modalTotal = 0; updateModalTimerDisplay(); });
+        document.getElementById('modal-confirm-reserve')?.addEventListener('click', () => {
+            if (modalTotal <= 0) { showAlertModal('Error', 'Please set a reservation duration'); return; }
+            db.ref(`drawers/${currentDrawerId}`).once('value', (snapshot) => {
+                const drawer = snapshot.val();
+                if (drawer && !drawer.reservedByProf) {
+                    db.ref(`drawers/${currentDrawerId}`).update({
+                        reservedByProf: currentUser.id,
+                        reservedUntil: Date.now() + modalTotal * 60000,
+                        submissions: []
+                    });
+                    document.getElementById('reserve-drawer-modal').classList.add('hidden');
+                    showActionCompleteModal(`Drawer #${currentDrawerId} reserved successfully!`, 'profDash');
+                } else {
+                    showAlertModal('Error', 'Drawer is no longer available');
+                    document.getElementById('reserve-drawer-modal').classList.add('hidden');
+                }
+            });
+        });
+        document.getElementById('modal-cancel-reserve')?.addEventListener('click', () => document.getElementById('reserve-drawer-modal').classList.add('hidden'));
+
+        // ========== CLAIM SUBMISSIONS ==========
+        function renderClaimScreen() {
+            db.ref('drawers').on('value', (snapshot) => {
+                const drawers = snapshot.val() || defaultDrawers;
+                const container = document.getElementById('claim-drawers-list');
+                if (!container) return;
+                container.innerHTML = '';
+                const profDrawers = Object.values(drawers).filter(d => d.reservedByProf === currentUser.id);
+                if (profDrawers.length === 0) {
+                    container.innerHTML = '<p class="text-center text-gray-500">You have no reserved drawers.</p>';
+                    return;
+                }
+                profDrawers.forEach(d => {
+                    const submissionsHtml = d.submissions.length === 0 ? '<p class="text-xs text-gray-400 italic">No submissions yet</p>' : d.submissions.map(s => `<div class="submission-item p-2 mb-2 rounded"><p class="text-sm font-semibold">📄 ${s.studentName}</p><p class="text-xs text-gray-600">🗂️ Drawer #${s.drawerId} | 👩‍🏫 ${s.professorName}</p><p class="text-xs text-gray-500">🕒 ${new Date(s.timestamp).toLocaleString()}</p></div>`).join('');
+                    const div = document.createElement('div');
+                    div.className = 'p-4 rounded-lg shadow border bg-white';
+                    div.innerHTML = `<h4 class="font-bold text-lg">Drawer #${d.id}</h4><p class="text-sm">Expires: ${new Date(d.reservedUntil).toLocaleString()}</p><p class="text-sm font-medium mt-2">Submissions (${d.submissions.length}):</p><div class="bg-gray-50 p-2 rounded mt-1 max-h-48 overflow-y-auto">${submissionsHtml}</div><button class="claim-drawer-btn mt-3 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition" data-id="${d.id}">Claim All</button>`;
+                    container.appendChild(div);
+                });
+                document.querySelectorAll('.claim-drawer-btn').forEach(btn => btn.addEventListener('click', e => {
+                    const drawerId = parseInt(e.target.dataset.id);
+                    showConfirmationModal('Claim Submissions', `Are you sure you want to claim all submissions from Drawer #${drawerId}?`, () => {
+                        db.ref(`drawers/${drawerId}`).update({ submissions: [] });
+                        showActionCompleteModal('All submissions claimed successfully!', 'profDash');
+                    });
+                }));
+            });
+        }
+
+        // ========== CONSULTATION HOURS ==========
+        let currentTimeUpdater = null;
+        
+        function updateCurrentTime() {
+            const now = getCurrentTimeHM();
+            const currentTimeDisplay = document.getElementById('current-time-display');
+            if (currentTimeDisplay) {
+                currentTimeDisplay.textContent = formatTimeWithAMPM(now.hours, now.minutes);
+            }
+        }
+        
+        function startCurrentTimeUpdater() {
+            if (currentTimeUpdater) clearInterval(currentTimeUpdater);
+            currentTimeUpdater = setInterval(updateCurrentTime, 60000);
+            updateCurrentTime();
+        }
+
+        const consultStartTime = document.getElementById('consult-start-time');
+        const consultEndTime = document.getElementById('consult-end-time');
+        const durationCalc = document.getElementById('duration-calc');
+        const conflictWarningDiv = document.getElementById('schedule-conflict-warning');
+        const conflictMessageSpan = document.getElementById('conflict-message');
+
+        function calculateDuration() {
+            if (!consultStartTime || !consultEndTime) return 0;
+            const startStr = consultStartTime.textContent;
+            const endStr = consultEndTime.textContent;
+            const startParts = startStr.split(':');
+            const endParts = endStr.split(':');
+            if (startParts.length < 2 || endParts.length < 2) return 0;
+            let startHours = parseInt(startParts[0]) || 0;
+            let startMinutes = parseInt(startParts[1]) || 0;
+            let endHours = parseInt(endParts[0]) || 0;
+            let endMinutes = parseInt(endParts[1]) || 0;
+            
+            let startTotal = startHours * 60 + startMinutes;
+            let endTotal = endHours * 60 + endMinutes;
+            if (endTotal < startTotal) endTotal += 24 * 60;
+            const minutes = endTotal - startTotal;
+            if (durationCalc) durationCalc.textContent = minutes;
+            return minutes;
+        }
+
+        function checkTimeConflict(startTime, endTime, callback) {
+            if (!currentUser || currentUser.role !== 'prof') {
+                if (callback) callback(false);
+                return;
+            }
+            db.ref(`professors/${currentUser.id}/consultations`).once('value', (snapshot) => {
+                const consultations = snapshot.val() || [];
+                let conflicts = [];
+                for (let consult of consultations) {
+                    const consultStart = new Date(consult.startTime);
+                    const consultEnd = new Date(consult.endTime);
+                    if (startTime < consultEnd && endTime > consultStart) {
+                        conflicts.push(`${formatTimeWithAMPM(consultStart.getHours(), consultStart.getMinutes())} - ${formatTimeWithAMPM(consultEnd.getHours(), consultEnd.getMinutes())}`);
+                    }
+                }
+                if (conflicts.length > 0 && conflictWarningDiv && conflictMessageSpan) {
+                    conflictMessageSpan.textContent = `This time overlaps with existing consultation(s): ${conflicts.join(', ')}`;
+                    conflictWarningDiv.classList.remove('hidden');
+                    if (callback) callback(true);
+                } else {
+                    if (conflictWarningDiv) conflictWarningDiv.classList.add('hidden');
+                    if (callback) callback(false);
+                }
+            });
+        }
+
+        function updateConsultationTimes() {
+            calculateDuration();
+            if (consultStartTime && consultEndTime) {
+                const startStr = consultStartTime.textContent;
+                const endStr = consultEndTime.textContent;
+                const startParts = startStr.split(':');
+                const endParts = endStr.split(':');
+                if (startParts.length >= 2 && endParts.length >= 2) {
+                    let startHours = parseInt(startParts[0]) || 0;
+                    let startMinutes = parseInt(startParts[1]) || 0;
+                    let endHours = parseInt(endParts[0]) || 0;
+                    let endMinutes = parseInt(endParts[1]) || 0;
+                    const now = new Date();
+                    const startDate = new Date(now);
+                    startDate.setHours(startHours, startMinutes, 0, 0);
+                    const endDate = new Date(now);
+                    endDate.setHours(endHours, endMinutes, 0, 0);
+                    if (endDate <= startDate) endDate.setDate(endDate.getDate() + 1);
+                    checkTimeConflict(startDate, endDate);
+                }
+            }
+        }
+
+        function renderUpcomingSchedule() {
+            if (!currentUser || currentUser.role !== 'prof') return;
+            db.ref(`professors/${currentUser.id}/consultations`).on('value', (snapshot) => {
+                const consultations = snapshot.val() || [];
+                const now = Date.now();
+                const upcoming = consultations.filter(c => c.endTime > now).sort((a, b) => a.startTime - b.startTime);
+                const scheduleContainer = document.getElementById('upcoming-schedule-list');
+                if (!scheduleContainer) return;
+                
+                if (upcoming.length === 0) {
+                    scheduleContainer.innerHTML = `<div class="text-center text-gray-500 py-8"><i class="fas fa-calendar-day text-4xl mb-2 opacity-50"></i><p>No consultations scheduled</p></div>`;
+                    return;
+                }
+                
+                scheduleContainer.innerHTML = upcoming.map((consult, index) => {
+                    const start = new Date(consult.startTime);
+                    const end = new Date(consult.endTime);
+                    const isActive = consult.startTime <= now && consult.endTime > now;
+                    return `
+                        <div class="schedule-item ${isActive ? 'active' : ''} border-l-4 ${isActive ? 'border-green-500' : 'border-[#35408E]'} bg-white p-3 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <i class="fas ${isActive ? 'fa-circle text-green-500 animate-pulse' : 'fa-clock text-[#35408E]'} text-sm"></i>
+                                        <p class="font-semibold text-gray-800">${start.toLocaleDateString()}</p>
+                                    </div>
+                                    <p class="text-sm text-gray-600">${formatTimeWithAMPM(start.getHours(), start.getMinutes())} - ${formatTimeWithAMPM(end.getHours(), end.getMinutes())}</p>
+                                    <p class="text-xs text-gray-500 mt-1">Duration: ${consult.duration} minutes</p>
+                                </div>
+                                <button class="cancel-schedule-btn bg-red-100 hover:bg-red-500 text-red-600 hover:text-white px-3 py-1 rounded-lg transition-all duration-200 text-sm font-medium" data-index="${index}" data-starttime="${consult.startTime}">
+                                    <i class="fas fa-times mr-1"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.querySelectorAll('.cancel-schedule-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const startTime = parseInt(btn.dataset.starttime);
+                        db.ref(`queues/${currentUser.id}`).once('value', (queueSnap) => {
+                            const queue = queueSnap.val();
+                            const queueLength = queue ? Object.keys(queue).length : 0;
+                            
+                            if (queueLength > 0) {
+                                showWarningModal(`There are ${queueLength} student(s) waiting in queue. Cancelling this consultation will remove them from the queue.`, () => {
+                                    showConfirmationModal('Confirm Cancellation', 'Are you absolutely sure you want to cancel this consultation? All students in queue will be removed.', () => {
+                                        db.ref(`professors/${currentUser.id}/consultations`).once('value', (snap) => {
+                                            const cons = snap.val() || [];
+                                            const newCons = cons.filter(c => c.startTime !== startTime);
+                                            db.ref(`professors/${currentUser.id}`).update({ consultations: newCons });
+                                            db.ref(`queues/${currentUser.id}`).remove();
+                                            renderUpcomingSchedule();
+                                            updateProfDashboard();
+                                            showActionCompleteModal('Consultation cancelled successfully! Queue cleared.', 'profOpenHours');
+                                        });
+                                    });
+                                });
+                            } else {
+                                showConfirmationModal('Cancel Consultation', 'Are you sure you want to cancel this consultation?', () => {
+                                    db.ref(`professors/${currentUser.id}/consultations`).once('value', (snap) => {
+                                        const cons = snap.val() || [];
+                                        const newCons = cons.filter(c => c.startTime !== startTime);
+                                        db.ref(`professors/${currentUser.id}`).update({ consultations: newCons });
+                                        renderUpcomingSchedule();
+                                        updateProfDashboard();
+                                        showActionCompleteModal('Consultation cancelled successfully!', 'profOpenHours');
+                                    });
+                                });
+                            }
+                        });
+                    });
+                });
+            });
+        }
+
+        function updateStartEndTimesFromDuration(startHours, startMinutes, durationMinutes) {
+            let endTotal = (startHours * 60 + startMinutes + durationMinutes);
+            let endHours = Math.floor(endTotal / 60) % 24;
+            let endMinutes = endTotal % 60;
+            if (consultEndTime) {
+                consultEndTime.textContent = endHours.toString().padStart(2, '0') + ':' + endMinutes.toString().padStart(2, '0');
+            }
+            calculateDuration();
+            updateConsultationTimes();
+        }
+
+        function setupTimeChangeHandler() {
+            if (consultStartTime) {
+                setupEditableTime(consultStartTime, (hours, minutes) => {
+                    calculateDuration();
+                    updateConsultationTimes();
+                });
+            }
+            if (consultEndTime) {
+                setupEditableTime(consultEndTime, (hours, minutes) => {
+                    calculateDuration();
+                    updateConsultationTimes();
+                });
+            }
+        }
+
+        setupTimeChangeHandler();
+
+        // Duration buttons
+        let consultStack = [];
+        let consultTotal = 0;
+        
+        function updateConsultFromDurationButtons() {
+            let startHours = 0, startMinutes = 0;
+            if (consultStartTime) {
+                const startParts = consultStartTime.textContent.split(':');
+                startHours = parseInt(startParts[0]) || 0;
+                startMinutes = parseInt(startParts[1]) || 0;
+            }
+            updateStartEndTimesFromDuration(startHours, startMinutes, consultTotal);
+        }
+        
+        document.querySelectorAll('.add-consult-duration').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const mins = parseInt(e.target.dataset.min);
+                consultStack.push(mins);
+                consultTotal += mins;
+                updateConsultFromDurationButtons();
+            });
+        });
+        
+        document.getElementById('consult-undo')?.addEventListener('click', () => {
+            if (consultStack.length) {
+                consultTotal -= consultStack.pop();
+                if (consultTotal < 0) consultTotal = 0;
+                updateConsultFromDurationButtons();
+            }
+        });
+        
+        document.getElementById('consult-clear')?.addEventListener('click', () => {
+            consultStack = [];
+            consultTotal = 0;
+            updateConsultFromDurationButtons();
+        });
+
+        document.getElementById('consult-confirm-btn')?.addEventListener('click', () => {
+            const duration = calculateDuration();
+            if (duration <= 0) {
+                showAlertModal('Error', 'Please set a valid consultation time range (end time must be after start time)');
+                return;
+            }
+            const startStr = consultStartTime.textContent;
+            const endStr = consultEndTime.textContent;
+            const startParts = startStr.split(':');
+            const endParts = endStr.split(':');
+            if (startParts.length < 2 || endParts.length < 2) {
+                showAlertModal('Error', 'Invalid time format');
+                return;
+            }
+            let startHours = parseInt(startParts[0]) || 0;
+            let startMinutes = parseInt(startParts[1]) || 0;
+            let endHours = parseInt(endParts[0]) || 0;
+            let endMinutes = parseInt(endParts[1]) || 0;
+            
+            const now = new Date();
+            const startTime = new Date(now);
+            startTime.setHours(startHours, startMinutes, 0, 0);
+            let endTime = new Date(now);
+            endTime.setHours(endHours, endMinutes, 0, 0);
+            if (endTime <= startTime) endTime.setDate(endTime.getDate() + 1);
+            
+            checkTimeConflict(startTime, endTime, (hasConflict) => {
+                if (hasConflict) {
+                    showWarningModal('This consultation time overlaps with an existing consultation. Do you still want to proceed?', () => {
+                        db.ref(`professors/${currentUser.id}/consultations`).once('value', (snapshot) => {
+                            const consultations = snapshot.val() || [];
+                            consultations.push({ startTime: startTime.getTime(), endTime: endTime.getTime(), duration: duration });
+                            db.ref(`professors/${currentUser.id}`).update({ consultations: consultations });
+                            renderUpcomingSchedule();
+                            updateProfDashboard();
+                            showActionCompleteModal('Consultation hours opened successfully!', 'profOpenHours');
+                        });
+                    });
+                } else {
+                    showMaterialModal('Confirm Consultation', `Open consultation hours from ${formatTimeWithAMPM(startHours, startMinutes)} to ${formatTimeWithAMPM(endHours, endMinutes)}? (${duration} minutes)`, () => {
+                        db.ref(`professors/${currentUser.id}/consultations`).once('value', (snapshot) => {
+                            const consultations = snapshot.val() || [];
+                            consultations.push({ startTime: startTime.getTime(), endTime: endTime.getTime(), duration: duration });
+                            db.ref(`professors/${currentUser.id}`).update({ consultations: consultations });
+                            renderUpcomingSchedule();
+                            updateProfDashboard();
+                            showActionCompleteModal('Consultation hours opened successfully!', 'profOpenHours');
+                        });
+                    });
+                }
+            });
+        });
+
+        // ========== STUDENT IN-PERSON ==========
+        function renderAvailableProfs() {
+            db.ref('professors').on('value', (profSnapshot) => {
+                const professors = profSnapshot.val() || defaultProfessors;
+                professorsList = Object.values(professors);
+                const now = Date.now();
+                const availableProfs = Object.values(professors).filter(p => p.consultations && p.consultations.some(c => c.endTime > now));
+                const list = document.getElementById('available-prof-list');
+                if (!list) return;
+                list.innerHTML = '';
+                if (availableProfs.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-500 py-8">No professors available at the moment.</p>';
+                    return;
+                }
+                
+                availableProfs.forEach(p => {
+                    db.ref(`queues/${p.id}`).once('value', (queueSnap) => {
+                        const queue = queueSnap.val() || {};
+                        const isInQueue = Object.values(queue).some(s => s.studentName === currentUser.name);
+                        const activeConsult = p.consultations.find(c => c.endTime > now);
+                        const endTime = activeConsult ? new Date(activeConsult.endTime) : null;
+                        const endTimeStr = endTime ? formatTimeWithAMPM(endTime.getHours(), endTime.getMinutes()) : 'N/A';
+                        const card = document.createElement('div');
+                        card.className = 'bg-white p-4 rounded-lg shadow border hover:shadow-md transition-all';
+                        if (!isInQueue) {
+                            card.innerHTML = `<div class="flex justify-between items-center"><div><p class="font-bold text-[#35408E]">${p.name}</p><p class="text-sm text-gray-600">${p.department} | ${p.section}</p><p class="text-xs text-gray-500 mt-1">⏰ Available until: ${endTimeStr}</p></div><button class="join-queue-btn btn-accent text-gray-800 font-bold py-2 px-4 rounded-lg" data-profid="${p.id}" data-profname="${p.name}">Join Queue</button></div>`;
+                        } else {
+                            card.innerHTML = `<div class="flex justify-between items-center"><div><p class="font-bold text-[#35408E]">${p.name}</p><p class="text-sm text-gray-600">${p.department} | ${p.section}</p><p class="text-xs text-green-600 mt-1">✅ You are in queue</p><p class="text-xs text-gray-500">⏰ Available until: ${endTimeStr}</p></div><button class="leave-queue-btn bg-red-100 text-red-600 py-2 px-4 rounded-lg hover:bg-red-200 transition" data-profid="${p.id}">Leave</button></div>`;
+                        }
+                        list.appendChild(card);
+                    });
+                });
+            });
+        }
+
+        // Join/Leave Queue Handlers
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('join-queue-btn')) {
+                const profId = e.target.dataset.profid;
+                const profName = e.target.dataset.profname;
+                addToQueue(profId, currentUser.name, () => {
+                    db.ref(`queues/${profId}`).once('value', (snapshot) => {
+                        const queue = snapshot.val() || {};
+                        const queueArray = Object.values(queue).sort((a, b) => a.requestTime - b.requestTime);
+                        const position = queueArray.findIndex(s => s.studentName === currentUser.name) + 1;
+                        const studentQrContainer = document.getElementById('student-qr-container');
+                        const studentQueueQr = document.getElementById('student-queue-qr');
+                        const studentPositionDisplay = document.getElementById('student-position-display');
+                        if (studentQueueQr) studentQueueQr.innerHTML = '';
+                        if (studentQrContainer) studentQrContainer.classList.remove('hidden');
+                        if (studentPositionDisplay) studentPositionDisplay.textContent = `Position in queue: ${position}`;
+                        const token = 'track_' + Date.now() + '_' + Math.random().toString(36).substring(2);
+                        generateQRCode('student-queue-qr', getBaseUrl() + '?trackProf=' + profId + '&trackStudent=' + encodeURIComponent(currentUser.name) + '&trackToken=' + token, 150);
+                        currentStudentProf = profId;
+                        startTracking(profId, currentUser.name);
+                        renderAvailableProfs();
+                    });
+                });
+            }
+            
+            if (e.target.classList.contains('leave-queue-btn') || e.target.closest('.leave-queue-btn')) {
+                const btn = e.target.classList.contains('leave-queue-btn') ? e.target : e.target.closest('.leave-queue-btn');
+                const profId = btn.dataset.profid;
+                showConfirmationModal('Leave Queue', 'Are you sure you want to leave the queue?', () => {
+                    removeFromQueue(profId, currentUser.name, () => {
+                        document.getElementById('student-qr-container').classList.add('hidden');
+                        document.getElementById('student-queue-qr').innerHTML = '';
+                        currentStudentProf = null;
+                        showActionCompleteModal('You have left the queue', 'studentInperson');
+                        renderAvailableProfs();
+                    });
+                });
+            }
+        });
+
+        document.getElementById('view-queue-status-btn')?.addEventListener('click', () => {
+            if (currentStudentProf) {
+                db.ref(`queues/${currentStudentProf}`).once('value', (snapshot) => {
+                    const queue = snapshot.val() || {};
+                    const queueArray = Object.values(queue).sort((a, b) => a.requestTime - b.requestTime);
+                    const position = queueArray.findIndex(s => s.studentName === currentUser.name) + 1;
+                    db.ref(`professors/${currentStudentProf}`).once('value', (profSnap) => {
+                        const prof = profSnap.val();
+                        document.getElementById('track-prof-name').textContent = prof ? prof.name : '';
+                        document.getElementById('track-student-name').textContent = currentUser.name;
+                        document.getElementById('track-position').textContent = position;
+                        showScreen('studentQueueTrack');
+                        startTracking(currentStudentProf, currentUser.name);
+                    });
+                });
+            } else {
+                showAlertModal('Not in Queue', 'You are not currently in any queue.');
+            }
+        });
+
+        document.getElementById('leave-queue-btn')?.addEventListener('click', () => {
+            if (currentStudentProf) {
+                showConfirmationModal('Leave Queue', 'Are you sure you want to leave the queue?', () => {
+                    removeFromQueue(currentStudentProf, currentUser.name, () => {
+                        document.getElementById('student-qr-container').classList.add('hidden');
+                        document.getElementById('student-queue-qr').innerHTML = '';
+                        if (currentPositionListener) {
+                            db.ref(`queues/${currentStudentProf}`).off('value', currentPositionListener);
+                            currentPositionListener = null;
+                        }
+                        currentStudentProf = null;
+                        showActionCompleteModal('You have left the queue', 'studentInperson');
+                        renderAvailableProfs();
+                    });
+                });
+            }
+        });
+
+        // ========== STUDENT SUBMIT DOCUMENT ==========
+        function renderAvailableDrawerProfs() {
+            db.ref('drawers').on('value', (snapshot) => {
+                const drawers = snapshot.val() || defaultDrawers;
+                const now = Date.now();
+                const activeDrawers = Object.values(drawers).filter(d => d.reservedByProf && d.reservedUntil > now);
+                const list = document.getElementById('available-drawer-prof-list');
+                if (!list) return;
+                list.innerHTML = '';
+                if (activeDrawers.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-500 py-8">No professors accepting submissions at the moment.</p>';
+                    return;
+                }
+                activeDrawers.forEach(drawer => {
+                    db.ref(`professors/${drawer.reservedByProf}`).once('value', (profSnap) => {
+                        const prof = profSnap.val();
+                        if (prof) {
+                            const card = document.createElement('div');
+                            card.className = 'bg-white p-4 rounded-lg shadow border hover:shadow-md transition-all';
+                            card.innerHTML = `<div class="flex justify-between items-center"><div><p class="font-bold text-[#35408E]">${prof.name}</p><p class="text-sm text-gray-600">${prof.department} | ${prof.section}</p><p class="text-xs text-gray-500 mt-1">Drawer #${drawer.id} · Submissions: <span class="submission-count font-semibold" data-drawerid="${drawer.id}">${drawer.submissions.length}</span></p><p class="text-xs text-gray-500">Available until: ${formatTimeWithAMPM(new Date(drawer.reservedUntil).getHours(), new Date(drawer.reservedUntil).getMinutes())}</p></div><button class="submit-doc-btn btn-primary text-white py-2 px-4 rounded-lg" data-profid="${prof.id}" data-drawerid="${drawer.id}" data-profname="${prof.name}">Submit</button></div>`;
+                            list.appendChild(card);
+                        }
+                    });
+                });
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('submit-doc-btn')) {
+                const profId = e.target.dataset.profid;
+                const profName = e.target.dataset.profname;
+                const drawerId = parseInt(e.target.dataset.drawerid);
+                db.ref(`drawers/${drawerId}`).once('value', (snapshot) => {
+                    const drawer = snapshot.val();
+                    if (!drawer || drawer.reservedByProf !== profId || drawer.reservedUntil < Date.now()) {
+                        showAlertModal('Error', 'Drawer is no longer available');
+                        renderAvailableDrawerProfs();
+                        return;
+                    }
+                    showMaterialModal('Confirm Submission', `Submit document to ${profName} (Drawer #${drawerId})?`, () => {
+                        const submissionTime = new Date();
+                        const submissions = drawer.submissions || [];
+                        submissions.push({
+                            studentName: currentUser.name,
+                            timestamp: submissionTime.getTime(),
+                            drawerId: drawerId,
+                            professorId: profId,
+                            professorName: profName
+                        });
+                        db.ref(`drawers/${drawerId}`).update({ submissions: submissions });
+                        showScreen('studentInstructions');
+                        setTimeout(() => {
+                            document.getElementById('instruction-prof-name').textContent = profName;
+                            document.getElementById('instruction-drawer-number').textContent = drawerId;
+                            const statusSpan = document.getElementById('drawer-status');
+                            if (statusSpan) {
+                                statusSpan.className = drawer.reservedUntil < Date.now() ? 'status-unavailable' : 'status-available';
+                            }
+                            document.getElementById('drawer-until').textContent = formatTimeWithAMPM(new Date(drawer.reservedUntil).getHours(), new Date(drawer.reservedUntil).getMinutes());
+                            document.getElementById('submission-time').textContent = formatTimeWithAMPM(submissionTime.getHours(), submissionTime.getMinutes());
+                        }, 100);
+                    });
+                });
+            }
+        });
+
+        // ========== LOGIN/LOGOUT ==========
+        function logout() {
+            if (currentPositionListener) {
+                if (currentStudentProf) db.ref(`queues/${currentStudentProf}`).off('value', currentPositionListener);
+                currentPositionListener = null;
+            }
+            if (currentQueueListener) {
+                if (currentUser?.id) db.ref(`queues/${currentUser.id}`).off('value', currentQueueListener);
+                currentQueueListener = null;
+            }
+            if (currentTimeUpdater) clearInterval(currentTimeUpdater);
+            currentUser = null;
+            currentStudentProf = null;
+            localStorage.removeItem('currentUser');
+            sessionStorage.clear();
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showScreen('start');
+        }
+
+        document.getElementById('start-login-btn')?.addEventListener('click', () => showScreen('login'));
+        document.getElementById('back-to-start-login')?.addEventListener('click', () => showScreen('start'));
+        document.getElementById('prof-logout')?.addEventListener('click', logout);
+        document.getElementById('student-logout')?.addEventListener('click', logout);
+        document.getElementById('error-back-home')?.addEventListener('click', () => window.location.href = window.location.pathname);
+
+        // Professor Login
+        document.getElementById('prof-login-btn')?.addEventListener('click', () => {
+            const id = document.getElementById('prof-id-input').value.trim().toLowerCase();
+            if (!id) { showAlertModal('Error', 'Please enter your Professor ID'); return; }
+            db.ref(`professors/${id}`).once('value', (snapshot) => {
+                let prof = snapshot.val();
+                if (!prof) {
+                    prof = { id: id, name: 'Professor ' + id, department: 'SET Department', section: 'Computer Engineering', consultations: [] };
+                    db.ref(`professors/${id}`).set(prof);
+                }
+                currentUser = { role: 'prof', id: prof.id, name: prof.name, department: prof.department, section: prof.section };
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                document.getElementById('prof-name-display').textContent = prof.name;
+                document.getElementById('prof-department-display').textContent = `${prof.department || 'SET Department'} | ${prof.section || 'Computer Engineering'}`;
+                showScreen('profDash');
+            });
+        });
+
+        // Professor Tab and Student Tab
+        const profTab = document.getElementById('prof-tab');
+        const studentTab = document.getElementById('student-tab');
+        const profLoginForm = document.getElementById('prof-login-form');
+        const studentLoginForm = document.getElementById('student-login-form');
+        
+        if (profTab && studentTab && profLoginForm && studentLoginForm) {
+            profTab.addEventListener('click', () => {
+                profTab.classList.add('tab-active'); 
+                studentTab.classList.remove('tab-active');
+                profLoginForm.classList.remove('hidden'); 
+                studentLoginForm.classList.add('hidden');
+            });
+            studentTab.addEventListener('click', () => {
+                studentTab.classList.add('tab-active'); 
+                profTab.classList.remove('tab-active');
+                studentLoginForm.classList.remove('hidden'); 
+                profLoginForm.classList.add('hidden');
+            });
+        }
+
+        // Student Login
+        document.getElementById('student-login-btn')?.addEventListener('click', () => {
+            document.querySelectorAll('.error-field').forEach(el => el.classList.remove('error-field'));
+            const last = document.getElementById('student-last').value.trim().toUpperCase();
+            const first = document.getElementById('student-first').value.trim();
+            const middle = document.getElementById('student-middle').value.trim().toUpperCase();
+            const lettersOnly = /^[A-Za-z\s]+$/;
+            if (!last || !first || !middle || !lettersOnly.test(last) || !lettersOnly.test(first) || !/^[A-Za-z]{1,2}$/.test(middle)) {
+                showAlertModal('Validation Error', 'Please fill all fields correctly');
+                return;
+            }
+            const fullName = `${last}, ${first} ${middle}.`;
+            currentUser = { role: 'student', id: 'student-' + Date.now(), name: fullName };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            document.getElementById('student-name-display').textContent = fullName;
+            document.getElementById('student-queue-qr').innerHTML = '';
+            document.getElementById('student-qr-container').classList.add('hidden');
+            showScreen('studentDash');
+        });
+
+        // Professor Dashboard Navigation
+        document.getElementById('prof-reserve-drawer-btn')?.addEventListener('click', () => showScreen('profReserve'));
+        document.getElementById('prof-claim-submissions-btn')?.addEventListener('click', () => showScreen('profClaim'));
+        document.getElementById('prof-open-hours-btn')?.addEventListener('click', () => showScreen('profOpenHours'));
+        document.getElementById('prof-go-to-queue-btn')?.addEventListener('click', () => {
+            if (currentUser) {
+                sessionStorage.setItem('queueProfId', currentUser.id);
+                sessionStorage.setItem('queueProfName', currentUser.name);
+                document.getElementById('manage-prof-name').textContent = currentUser.name;
+                showScreen('profQueueManage');
+                loadQueueData(currentUser.id);
+            }
+        });
+        document.getElementById('back-to-prof-dash-from-queue')?.addEventListener('click', () => showScreen('profDash'));
+        document.getElementById('back-to-prof-dashboard-reserve')?.addEventListener('click', () => showScreen('profDash'));
+        document.getElementById('back-to-prof-dashboard-claim')?.addEventListener('click', () => showScreen('profDash'));
+        document.getElementById('back-to-prof-dashboard-open')?.addEventListener('click', () => showScreen('profDash'));
+
+        // Student Dashboard Navigation
+        document.getElementById('student-inperson-btn')?.addEventListener('click', () => showScreen('studentInperson'));
+        document.getElementById('student-submit-btn')?.addEventListener('click', () => showScreen('studentSubmit'));
+        document.getElementById('back-to-student-dash-inperson')?.addEventListener('click', () => showScreen('studentDash'));
+        document.getElementById('back-to-student-dash-submit')?.addEventListener('click', () => showScreen('studentDash'));
+        document.getElementById('back-to-student-dash-from-tracking')?.addEventListener('click', () => showScreen('studentDash'));
+        document.getElementById('back-to-student-dash-from-instructions')?.addEventListener('click', () => showScreen('studentDash'));
+
+        // Call Next Student
+        document.getElementById('call-next-btn')?.addEventListener('click', () => {
+            const profId = sessionStorage.getItem('queueProfId') || currentUser?.id;
+            if (!profId) {
+                showAlertModal('Error', 'No professor logged in');
+                return;
+            }
+            callNextStudent(profId, (calledStudent) => {
+                if (calledStudent) {
+                    showAlertModal('Student Called', `Called ${calledStudent.studentName}`);
+                } else {
+                    showAlertModal('No Students', 'No students in queue');
+                }
+            });
+        });
+
+        // Refresh Queue Button
+        document.getElementById('refresh-queue-btn')?.addEventListener('click', () => {
+            const icon = document.getElementById('refresh-icon');
+            if (icon) icon.classList.add('refresh-icon');
+            const profId = sessionStorage.getItem('queueProfId') || currentUser?.id;
+            if (profId) loadQueueData(profId);
+            setTimeout(() => { if (icon) icon.classList.remove('refresh-icon'); }, 1000);
+        });
+
+        // ========== URL PARAMETER HANDLER (QR FUNCTIONALITY) ==========
+        function handleUrlParams() {
+            const params = getUrlParams();
+            if (params.prof && params.token) {
+                db.ref(`professors/${params.prof}`).once('value', (snapshot) => {
+                    const prof = snapshot.val();
+                    if (prof) {
+                        currentUser = { role: 'prof', id: prof.id, name: prof.name, department: prof.department, section: prof.section };
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        sessionStorage.setItem('queueProfId', prof.id);
+                        sessionStorage.setItem('queueProfName', prof.name);
+                        document.getElementById('manage-prof-name').textContent = prof.name;
+                        showScreen('profQueueManage');
+                        loadQueueData(prof.id);
+                    } else {
+                        showError('Professor not found');
+                    }
+                });
+            } else if (params.trackProf && params.trackStudent) {
+                db.ref(`professors/${params.trackProf}`).once('value', (snapshot) => {
+                    const prof = snapshot.val();
+                    if (prof) {
+                        const studentName = decodeURIComponent(params.trackStudent);
+                        currentUser = { role: 'student', id: 'qr-student', name: studentName };
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        document.getElementById('track-prof-name').textContent = prof.name;
+                        document.getElementById('track-student-name').textContent = studentName;
+                        if (params.trackPos) document.getElementById('track-position').textContent = params.trackPos;
+                        currentStudentProf = params.trackProf;
+                        showScreen('studentQueueTrack');
+                        startTracking(params.trackProf, studentName);
+                    } else {
+                        showError('Professor not found');
+                    }
+                });
+            }
+        }
+        
+        function showError(msg) { 
+            document.getElementById('error-message-text').textContent = msg; 
+            showScreen('error'); 
+        }
+
+        // ========== INACTIVITY LOGOUT ==========
+        let inactivityTimer;
+        function resetTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => { 
+                if (currentUser) { 
+                    logout(); 
+                    showAlertModal('Session Timeout', 'Logged out due to inactivity (5 minutes).'); 
+                } 
+            }, 5 * 60 * 1000);
+        }
+        window.addEventListener('mousemove', resetTimer);
+        window.addEventListener('keypress', resetTimer);
+        resetTimer();
+
+        // ========== INIT ==========
+        function init() {
+            initFirebaseData();
+            const params = getUrlParams();
+            if (params.prof || params.trackProf) { 
+                handleUrlParams(); 
+                return; 
+            }
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                try {
+                    currentUser = JSON.parse(storedUser);
+                    if (currentUser.role === 'prof') {
+                        db.ref(`professors/${currentUser.id}`).once('value', (snapshot) => {
+                            const prof = snapshot.val();
+                            if (prof) {
+                                document.getElementById('prof-name-display').textContent = currentUser.name;
+                                document.getElementById('prof-department-display').textContent = `${prof.department || 'SET Department'} | ${prof.section || 'Computer Engineering'}`;
+                            } else {
+                                document.getElementById('prof-name-display').textContent = currentUser.name;
+                            }
+                            showScreen('profDash');
+                        });
+                    } else {
+                        document.getElementById('student-name-display').textContent = currentUser.name;
+                        document.getElementById('student-queue-qr').innerHTML = '';
+                        document.getElementById('student-qr-container').classList.add('hidden');
+                        showScreen('studentDash');
+                    }
+                } catch (e) { 
+                    showScreen('start'); 
+                }
+            } else { 
+                showScreen('start'); 
+            }
+        }
+        
+        init();
+    </script>
+</div>
+</body>
+</html>

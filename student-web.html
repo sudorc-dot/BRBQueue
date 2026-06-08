@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BRBQueue · Student Web</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #35408E 0%, #1F2A6E 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .card-shadow { box-shadow: 0 20px 40px rgba(53, 64, 142, 0.25), 0 8px 16px rgba(53, 64, 142, 0.15); }
+        
+        .screen-transition {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .screen-transition.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(53, 64, 142, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.25s ease-out;
+        }
+        
+        .modal-card {
+            max-width: 500px;
+            width: 90%;
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.75rem;
+            box-shadow: 0 25px 50px rgba(53, 64, 142, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes checkmark { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        
+        .refresh-icon { animation: spin 1s linear infinite; display: inline-block; }
+        .pulse-animation { animation: pulse 2s infinite; }
+        .success-check { animation: checkmark 0.5s ease-in-out; }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #35408E, #2a3370);
+            color: white;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2a3370, #1F2A6E);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(53, 64, 142, 0.3);
+        }
+        
+        .btn-accent {
+            background: linear-gradient(135deg, #FFCA2C, #FFB300);
+            color: #1a1a1a;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-accent:hover:not(:disabled) {
+            background: linear-gradient(135deg, #FFB300, #FFA000);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(255, 202, 44, 0.3);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #35408E;
+            color: #35408E;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-outline:hover:not(:disabled) {
+            background: #35408E;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .pin-badge {
+            background: #e0e7ff;
+            color: #35408E;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .waiting-message {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-left: 6px solid #FFCA2C;
+        }
+        
+        .submission-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .submission-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transform: translateX(4px);
+        }
+        
+        .status-claimed {
+            background: #10b981;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background: #f59e0b;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .status-unclaimed {
+            background: #ef4444;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #35408E; border-radius: 10px; }
+        
+        .hidden { display: none !important; }
+        
+        .countdown-timer {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #35408E;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+<div id="app-container" class="bg-white rounded-2xl card-shadow w-full max-w-4xl p-6 lg:p-10 relative overflow-hidden">
+
+    <!-- ==================== LOADING SCREEN ==================== -->
+    <section id="loading-screen" class="screen-transition active">
+        <div class="text-center py-16">
+            <i class="fas fa-spinner fa-spin text-5xl text-[#35408E] mb-4"></i>
+            <h2 class="text-2xl font-bold text-[#35408E]">Loading...</h2>
+            <p class="text-gray-600 mt-2">Please wait</p>
+        </div>
+    </section>
+
+    <!-- ==================== STUDENT WEB DASHBOARD ==================== -->
+    <section id="student-web-dashboard" class="screen-transition hidden">
+        <div class="text-center mb-6">
+            <h2 class="text-3xl font-bold text-[#35408E] mb-2">Student Dashboard</h2>
+            <p class="text-gray-600">Hello, <span id="student-name-display" class="font-semibold text-[#35408E]"></span></p>
+            <p class="text-xs text-gray-400 mt-1"><span id="student-id-display" class="pin-badge"></span></p>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="max-w-2xl mx-auto space-y-4">
+            <!-- View Queue Status Card -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-[#FFCA2C]">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-users mr-2 text-[#FFCA2C]"></i>View Queue Status
+                    </h3>
+                    <p class="text-sm text-gray-500">Check your current position in queue</p>
+                    <p class="text-xs text-gray-400 mt-1" id="queue-status-badge">
+                        <span id="not-in-queue-badge">Not currently in any queue</span>
+                    </p>
+                </div>
+                <button id="view-queue-status-btn" class="btn-accent font-bold py-3 px-8 rounded-xl w-full md:w-auto">
+                    <i class="fas fa-eye mr-2"></i>View Status
+                </button>
+            </div>
+
+            <!-- Document Submission Status Card -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-[#35408E]">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-file-alt mr-2 text-[#35408E]"></i>Document Submission Status
+                    </h3>
+                    <p class="text-sm text-gray-500">Track your submitted documents</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        <span id="submission-count">0</span> submission(s)
+                    </p>
+                </div>
+                <button id="view-submissions-btn" class="btn-primary font-bold py-3 px-8 rounded-xl w-full md:w-auto">
+                    <i class="fas fa-list mr-2"></i>View Submissions
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== QUEUE TRACKING SCREEN ==================== -->
+    <section id="student-queue-tracking" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Queue Status</h2>
+        
+        <div class="max-w-md mx-auto bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#35408E]">
+            <div class="text-center mb-6">
+                <p class="text-gray-600">Professor: <span id="track-prof-name" class="font-semibold text-[#35408E]"></span></p>
+                <p class="text-gray-600">Student: <span id="track-student-name" class="font-semibold"></span></p>
+                <p class="text-xs text-gray-400 mt-1"><span id="track-student-id" class="pin-badge"></span></p>
+            </div>
+            
+            <div class="text-center mb-6">
+                <div class="flex items-center justify-center gap-4">
+                    <div class="text-7xl font-bold text-[#35408E]" id="track-position">--</div>
+                    <button id="student-refresh-position-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 p-3 rounded-xl transition-all">
+                        <i class="fas fa-sync-alt" id="student-refresh-icon"></i>
+                    </button>
+                </div>
+                <p class="text-gray-600 mt-2">Your Position in Queue</p>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-xl mb-4">
+                <div class="flex justify-between text-sm">
+                    <span class="font-medium">Consultation Ends:</span>
+                    <span class="font-semibold" id="track-end">--:--</span>
+                </div>
+            </div>
+            
+            <div id="waiting-for-call" class="hidden waiting-message p-4 rounded-xl font-bold text-center mb-4 border-2 border-yellow-400">
+                <i class="fas fa-hourglass-half mr-2"></i>
+                You are next in line. Please wait for the professor to call you.
+            </div>
+            
+            <button id="leave-queue-btn" class="w-full bg-red-100 text-red-600 py-3 rounded-xl text-base hover:bg-red-200 transition font-medium mb-3">
+                <i class="fas fa-times mr-2"></i> Leave Queue
+            </button>
+            
+            <button id="back-to-dash-from-tracking" class="w-full btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+    <!-- ==================== STUDENT MULTIPLE QUEUES STATUS ==================== -->
+    <section id="student-all-queues-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Your Active Queues</h2>
+        <p class="text-center text-gray-500 mb-4">You are currently in these queues:</p>
+        
+        <div id="all-queues-list" class="max-w-2xl mx-auto space-y-4">
+
+        </div>
+        
+        <div class="text-center mt-6">
+            <button id="back-to-dash-from-all-queues" class="btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+    <!-- ==================== SUBMISSIONS STATUS SCREEN ==================== -->
+    <section id="submissions-status-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6">
+            <i class="fas fa-file-alt mr-2"></i> Submission Status
+        </h2>
+        
+        <div class="max-w-3xl mx-auto">
+            <!-- Summary Section -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl shadow-md border border-blue-200 mb-6">
+                <h4 class="font-semibold text-gray-800 mb-3 text-lg">
+                    <i class="fas fa-chart-pie mr-2 text-[#35408E]"></i>Summary
+                </h4>
+                <div class="grid grid-cols-4 gap-4 text-center">
+                    <div class="bg-white p-3 rounded-xl shadow-sm">
+                        <p class="text-gray-600 text-sm">Total</p>
+                        <p class="text-3xl font-bold text-[#35408E]" id="total-submissions">0</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm">
+                        <p class="text-gray-600 text-sm">Claimed</p>
+                        <p class="text-3xl font-bold text-green-600" id="claimed-submissions">0</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm">
+                        <p class="text-gray-600 text-sm">Pending</p>
+                        <p class="text-3xl font-bold text-yellow-600" id="pending-submissions">0</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm">
+                        <p class="text-gray-600 text-sm">Unclaimed</p>
+                        <p class="text-3xl font-bold text-red-600" id="unclaimed-submissions">0</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-3 text-center">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <strong>Claimed:</strong> Professor took your document | <strong>Pending:</strong> Awaiting professor pickup | <strong>Unclaimed:</strong> Document left in drawer (drawer expired)
+                </p>
+            </div>
+            
+                        <!-- Unclaimed Notice -->
+            <div id="unclaimed-notice" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p class="text-sm text-red-700">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <strong>Unclaimed Submissions:</strong> For unclaimed submissions, please coordinate with your professor directly.
+                </p>
+            </div>
+            
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-lg font-semibold text-gray-700">Your Submissions</p>
+                <div class="flex gap-2">
+                    <button id="refresh-submissions-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-xl transition-all">
+                        <i class="fas fa-sync-alt" id="submissions-refresh-icon"></i> Refresh
+                    </button>
+                    <button id="clear-submissions-btn" class="bg-red-100 hover:bg-red-200 text-red-600 py-2 px-4 rounded-xl transition-all">
+                        <i class="fas fa-trash-alt mr-1"></i> Clear
+                    </button>
+                </div>
+            </div>
+            
+            <div id="submissions-list" class="space-y-3 max-h-96 overflow-y-auto">
+                <p class="text-center text-gray-500 py-8">Loading submissions...</p>
+            </div>
+        </div>
+        
+        <div class="text-center mt-8">
+            <button id="back-to-dash-from-submissions" class="btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+    <!-- ==================== MODALS ==================== -->
+    <div id="alert-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="alert-modal-title" class="text-2xl font-bold text-[#35408E]"></h3>
+                <button id="alert-modal-close" class="text-gray-400 hover:text-gray-600 text-2xl transition">&times;</button>
+            </div>
+            <p id="alert-modal-message" class="text-gray-700 mb-6"></p>
+            <button id="alert-modal-ok" class="w-full btn-primary py-3 rounded-xl font-semibold">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 id="confirmation-title" class="text-2xl font-bold mb-4 text-[#35408E]"></h3>
+            <p id="confirmation-message" class="text-gray-700 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirmation-yes" class="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 transition">Confirm</button>
+                <button id="confirmation-no" class="flex-1 bg-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-400 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CALLED MODAL ==================== -->
+    <div id="called-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+            <div class="text-center mb-5">
+                <i class="fas fa-bell text-7xl text-white mb-4"></i>
+                <h3 class="text-2xl font-bold mb-2">You've Been Called!</h3>
+                <p id="called-modal-message" class="text-lg mb-6">The professor is ready to see you.</p>
+            </div>
+            <button id="called-modal-ok" class="w-full bg-white text-[#059669] py-3 rounded-xl font-bold hover:bg-gray-100 transition">OK</button>
+        </div>
+    </div>
+
+    <!-- ==================== REMOVED FROM QUEUE MODAL ==================== -->
+    <div id="removed-modal" class="modal-overlay hidden">
+        <div class="modal-card bg-red-50">
+            <div class="text-center mb-5">
+                <i class="fas fa-times-circle text-7xl text-red-600 mb-4"></i>
+                <h3 class="text-2xl font-bold text-[#35408E] mb-2">Removed from Queue</h3>
+                <p id="removed-modal-message" class="text-gray-700 mb-6"></p>
+            </div>
+            <button id="removed-modal-ok" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition">OK</button>
+        </div>
+    </div>
+
+    <div id="action-complete-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="text-center mb-5">
+                <i class="fas fa-check-circle text-7xl text-green-500 mb-4 success-check"></i>
+                <h3 class="text-2xl font-bold text-[#35408E] mb-2">Success!</h3>
+                <p id="action-complete-message" class="text-gray-700 mb-6"></p>
+            </div>
+            <div class="text-center">
+                <p class="text-gray-500 text-sm mb-2">Redirecting in</p>
+                <div class="countdown-timer" id="countdown-display">3</div>
+                <p class="text-gray-400 text-xs mt-2">seconds</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ============================================================================
+// BRBQUEUE STUDENT WEB APPLICATION
+// ============================================================================
+(function() {
+    'use strict';
+    
+    // ========== FIREBASE CONFIGURATION ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyDVzo0Ypi4xZ3UXI6G3KFnTLEPE5CRN7bM",
+        authDomain: "brbqueue-ebf2f.firebaseapp.com",
+        databaseURL: "https://brbqueue-ebf2f-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "brbqueue-ebf2f",
+        storageBucket: "brbqueue-ebf2f.firebasestorage.app",
+        messagingSenderId: "703549939346",
+        appId: "1:703549939346:web:05a277dae2f13e7e57d04b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    // ========== STATE ==========
+    const AppState = {
+        currentUser: null,
+        professors: [],
+        studentQueue: {},
+        studentSubmissions: [],
+        currentStudentProf: null,
+        positionCheckInterval: null,
+        callListenerRef: null,
+        queueListenerRef: null,
+        drawersListenerRef: null,
+        lastPosition: -1
+    };
+
+    // ========== SCREENS ==========
+    const Screens = {
+        loading: document.getElementById('loading-screen'),
+        dash: document.getElementById('student-web-dashboard'),
+        queueTrack: document.getElementById('student-queue-tracking'),
+        allQueues: document.getElementById('student-all-queues-screen'),
+        submissions: document.getElementById('submissions-status-screen')
+    };
+
+    // ========== UTILITIES ==========
+    function formatShortTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDateTime(timestamp) {
+        if (!timestamp) return 'N/A';
+        return new Date(timestamp).toLocaleString();
+    }
+
+        function showScreen(screenId) {
+            // Hide all modals EXCEPT called and removed
+            document.querySelectorAll('.modal-overlay').forEach(m => {
+                if (m.id !== 'called-modal' && m.id !== 'removed-modal') {
+                    m.classList.add('hidden');
+                }
+            });
+        // Close ALL Firebase listeners before switching screens
+        if (AppState.queueListenerRef) {
+            AppState.queueListenerRef.off();
+            AppState.queueListenerRef = null;
+        }
+        if (AppState.callListenerRef) {
+            AppState.callListenerRef.off();
+            AppState.callListenerRef = null;
+        }
+        
+        // Clear intervals
+        if (AppState.positionCheckInterval) {
+            clearInterval(AppState.positionCheckInterval);
+            AppState.positionCheckInterval = null;
+        }
+        if (AppState.callListenerRef) {
+            AppState.callListenerRef.off();
+            AppState.callListenerRef = null;
+        }
+        if (AppState.queueListenerRef) {
+            AppState.queueListenerRef.off();
+            AppState.queueListenerRef = null;
+        }
+        // Remove any dynamically created modals (like submission success)
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            if (!el.id) el.remove(); // only remove unnamed overlays
+        });
+
+        // Switch screen
+        Object.values(Screens).forEach(s => {
+            if (s) { s.classList.remove('active'); s.classList.add('hidden'); }
+        });
+        const target = Screens[screenId];
+        if (target) {
+            target.classList.remove('hidden');
+            setTimeout(() => target.classList.add('active'), 10);
+        }
+
+        // Refresh content based on screen
+        if (screenId === 'dash') updateDashboardDisplay();
+        if (screenId === 'queueTrack') startQueueTracking();
+        if (screenId === 'allQueues') renderAllStudentQueues();
+        if (screenId === 'submissions') renderSubmissionsList();
+    }
+
+    function showAlertModal(title, message, autoCloseSeconds = 0) {
+        document.getElementById('alert-modal-title').textContent = title;
+        document.getElementById('alert-modal-message').textContent = message;
+        const modal = document.getElementById('alert-modal');
+        modal.classList.remove('hidden');
+        
+        if (autoCloseSeconds > 0) {
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, autoCloseSeconds * 1000);
+        }
+    }
+
+    function showConfirmationModal(title, message, onYes) {
+        const modal = document.getElementById('confirmation-modal');
+        document.getElementById('confirmation-title').textContent = title;
+        document.getElementById('confirmation-message').textContent = message;
+        
+        const yesBtn = document.getElementById('confirmation-yes');
+        const noBtn = document.getElementById('confirmation-no');
+        const newYesBtn = yesBtn.cloneNode(true);
+        const newNoBtn = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+        noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+        
+        newYesBtn.addEventListener('click', () => { modal.classList.add('hidden'); if (onYes) onYes(); });
+        newNoBtn.addEventListener('click', () => modal.classList.add('hidden'));
+        modal.classList.remove('hidden');
+    }
+
+    function showCalledModal(profName) {
+        const modal = document.getElementById('called-modal');
+        document.getElementById('called-modal-message').textContent = `Professor ${profName} is ready to see you.`;
+        
+        const okBtn = document.getElementById('called-modal-ok');
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        
+        newOkBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            showScreen('dash');
+        });
+        modal.classList.remove('hidden');
+    }
+
+    function showRemovedModal(profName) {
+        const modal = document.getElementById('removed-modal');
+        document.getElementById('removed-modal-message').textContent = 
+            `Professor ${profName || 'The professor'} has removed you from the queue.`;
+        
+        const okBtn = document.getElementById('removed-modal-ok');
+        const newOkBtn = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+        
+        newOkBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            showScreen('dash');
+        });
+        modal.classList.remove('hidden');
+    }
+    
+    function showActionCompleteModal(message) {
+        const modal = document.getElementById('action-complete-modal');
+        document.getElementById('action-complete-message').textContent = message;
+        
+        let secondsLeft = 3;
+        document.getElementById('countdown-display').textContent = secondsLeft;
+        modal.classList.remove('hidden');
+        
+        const countdownInterval = setInterval(() => {
+            secondsLeft--;
+            document.getElementById('countdown-display').textContent = secondsLeft;
+            
+            if (secondsLeft <= 0) {
+                clearInterval(countdownInterval);
+                modal.classList.add('hidden');
+                showScreen('dash');
+            }
+        }, 1000);
+    }
+
+    // ========== SAVE DATA ==========
+    async function saveStudentData(updates) {
+        if (!AppState.currentUser?.id) return;
+        await db.ref(`students/${AppState.currentUser.id}`).update(updates);
+    }
+
+    // ========== LOAD DATA ==========
+    function loadData() {
+        db.ref('professors').on('value', (snap) => {
+            if (snap.exists()) {
+                AppState.professors = Object.values(snap.val());
+            }
+            if (Screens.queueTrack?.classList.contains('active')) updateTrackingDisplay();
+        });
+        
+        db.ref('queues').on('value', (snap) => {
+            if (snap.exists()) {
+                AppState.studentQueue = snap.val();
+            }
+            if (Screens.queueTrack?.classList.contains('active')) updateTrackingDisplay();
+            updateDashboardDisplay();
+        });
+        
+        // Listen for drawer changes to update submission statuses
+        if (AppState.drawersListenerRef) AppState.drawersListenerRef.off();
+        AppState.drawersListenerRef = db.ref('drawers').on('value', async (snap) => {
+            if (snap.exists() && AppState.currentUser?.id) {
+                const drawers = snap.val();
+                await checkAndUpdateSubmissionStatuses(drawers);
+            }
+        });
+    }
+
+    // Check if any submissions became unclaimed due to drawer expiry
+    async function checkAndUpdateSubmissionStatuses(drawers) {
+        if (!AppState.currentUser?.id) return;
+        
+        const now = Date.now();
+        let updated = false;
+        
+        for (const submission of AppState.studentSubmissions) {
+            // Skip already claimed or already marked unclaimed
+            if (submission.claimedTime || submission.unclaimed) continue;
+            
+            const drawer = drawers[submission.drawerId];
+            
+            // Check if drawer was cleared OR expired
+            const drawerCleared = !drawer || !drawer.reservedByProf;
+            const drawerExpired = drawer && drawer.reservedUntil && drawer.reservedUntil < now;
+            
+            if (drawerCleared || drawerExpired) {
+                submission.unclaimed = true;
+                submission.unclaimedTime = now;
+                updated = true;
+                console.log(`📄 Submission #${submission.drawerId} marked as UNCLAIMED`);
+            }
+            
+            // Check if professor claimed it (document no longer in drawer)
+            if (drawer && !drawerCleared && !drawerExpired) {
+                // Look for this submission in the drawer's submissions array
+                const stillInDrawer = drawer.submissions?.some(s => 
+                    s.studentId === submission.studentId && 
+                    s.timestamp === submission.timestamp
+                );
+                
+                // If not in drawer anymore, professor claimed it!
+                if (!stillInDrawer) {
+                    submission.claimedTime = now;
+                    updated = true;
+                    console.log(`✅ Submission #${submission.drawerId} marked as CLAIMED`);
+                }
+            }
+        }
+        
+        if (updated) {
+            await db.ref(`students/${AppState.currentUser.id}/submissions`).set(AppState.studentSubmissions);
+            if (Screens.submissions?.classList.contains('active')) renderSubmissionsList();
+            updateDashboardDisplay();
+        }
+    }
+
+    async function loadStudentSubmissions() {
+        if (!AppState.currentUser?.id) return;
+        
+        const snap = await db.ref(`students/${AppState.currentUser.id}/submissions`).once('value');
+        AppState.studentSubmissions = snap.val() || [];
+        
+        // Check against current drawers for unclaimed status
+        const drawersSnap = await db.ref('drawers').once('value');
+        if (drawersSnap.exists()) {
+            await checkAndUpdateSubmissionStatuses(drawersSnap.val());
+        }
+        
+        if (Screens.submissions?.classList.contains('active')) renderSubmissionsList();
+        updateDashboardDisplay();
+    }
+
+    // ========== DASHBOARD ==========
+        function updateDashboardDisplay() {
+        if (!AppState.currentUser) return;
+        
+        const student = AppState.currentUser;
+        document.getElementById('student-name-display').textContent = student.name;
+        document.getElementById('student-id-display').textContent = `ID: ${student.id}`;
+        
+        const queueBadge = document.getElementById('queue-status-badge');
+        
+        // Find all queues this student is in
+        const activeQueues = [];
+        Object.keys(AppState.studentQueue).forEach(profId => {
+            const queue = AppState.studentQueue[profId] || [];
+            const position = queue.findIndex(s => s.studentId === student.id) + 1;
+            if (position > 0) {
+                const prof = AppState.professors.find(p => p.id === profId);
+                activeQueues.push({ profId, profName: prof?.name || 'Unknown', position });
+            }
+        });
+        
+        if (activeQueues.length > 0) {
+            // Student is in at least one queue
+            if (activeQueues.length === 1) {
+                const q = activeQueues[0];
+                queueBadge.innerHTML = `<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>In queue for ${q.profName} (Position: ${q.position})</span>`;
+                student.currentQueue = q.profId;
+            } else {
+                queueBadge.innerHTML = `<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>In ${activeQueues.length} active queues</span>`;
+            }
+        } else {
+            queueBadge.innerHTML = `<span id="not-in-queue-badge" class="text-gray-500">Not currently in any queue</span>`;
+            student.currentQueue = null;
+        }
+        
+        document.getElementById('submission-count').textContent = AppState.studentSubmissions.length;
+    }
+
+    // ========== QUEUE TRACKING ==========
+    function startQueueTracking() {
+        const student = AppState.currentUser;
+        const profId = AppState.currentStudentProf || student.currentQueue;
+        
+        if (!profId) {
+            showAlertModal('Not in Queue', 'You are not currently in any queue.');
+            showScreen('dash');
+            return;
+        }
+        
+        AppState.currentStudentProf = profId;
+        AppState.lastPosition = -1;
+        
+        const prof = AppState.professors.find(p => p.id === profId);
+        document.getElementById('track-prof-name').textContent = prof?.name || 'Unknown';
+        document.getElementById('track-student-name').textContent = student.name;
+        document.getElementById('track-student-id').textContent = `ID: ${student.id}`;
+        
+        // Clean up old listeners
+        if (AppState.positionCheckInterval) {
+            clearInterval(AppState.positionCheckInterval);
+            AppState.positionCheckInterval = null;
+        }
+        if (AppState.queueListenerRef) {
+            AppState.queueListenerRef.off();
+            AppState.queueListenerRef = null;
+        }
+        if (AppState.callListenerRef) {
+            AppState.callListenerRef.off();
+            AppState.callListenerRef = null;
+        }
+        
+        // REAL-TIME QUEUE LISTENER
+        const queueRef = db.ref(`queues/${profId}`);
+        queueRef.on('value', (snap) => {
+            const queue = snap.val() || [];
+            const position = queue.findIndex(s => s.studentId === student.id) + 1;
+            
+            console.log(`📊 Queue update: position ${position} of ${queue.length}`);
+            
+            const trackPosition = document.getElementById('track-position');
+            const waitingEl = document.getElementById('waiting-for-call');
+            
+            if (position === 0) {
+                // Student was removed - DO NOT save position back!
+                if (trackPosition) trackPosition.textContent = '--';
+                if (waitingEl) waitingEl.classList.add('hidden');
+                
+                // Clear student queue reference IMMEDIATELY
+                student.currentQueue = null;
+                AppState.currentStudentProf = null;
+                
+                // Clean up listeners
+                if (AppState.queueListenerRef) {
+                    AppState.queueListenerRef.off();
+                    AppState.queueListenerRef = null;
+                }
+                
+                // Check if called or removed
+                checkIfCalled(profId);
+                return;
+            }
+            
+            if (trackPosition) trackPosition.textContent = position;
+            
+            // Show waiting message if first in line
+            if (position === 1) {
+                waitingEl?.classList.remove('hidden');
+            } else {
+                waitingEl?.classList.add('hidden');
+            }
+            
+            // Update consultation end time
+            const active = prof?.consultations?.find(c => c.endTime > Date.now());
+            const trackEnd = document.getElementById('track-end');
+            if (active && trackEnd) {
+                trackEnd.textContent = formatShortTime(new Date(active.endTime));
+            }
+            
+            // Only save position if student IS in queue (position > 0)
+            if (position > 0) {
+                saveStudentData({ queuePosition: position });
+            }
+            
+            AppState.lastPosition = position;
+        });
+        AppState.queueListenerRef = queueRef;
+        
+        // CALLS LISTENER
+        const callsQuery = db.ref('calls').orderByChild('studentId').equalTo(student.id);
+        callsQuery.on('child_added', (snap) => {
+            const call = snap.val();
+            
+            if (call && !call.read && call.professorId === profId) {
+                console.log(`📞 Call received:`, call);
+                
+                snap.ref.update({ read: true });
+                
+                // Clean up listeners FIRST
+                if (AppState.queueListenerRef) {
+                    AppState.queueListenerRef.off();
+                    AppState.queueListenerRef = null;
+                }
+                if (AppState.callListenerRef) {
+                    AppState.callListenerRef.off();
+                    AppState.callListenerRef = null;
+                }
+                
+                // Clear student data
+                student.currentQueue = null;
+                AppState.currentStudentProf = null;
+                saveStudentData({ currentQueue: null, queuePosition: null });
+                
+                if (call.action === 'removed') {
+                    showRemovedModal(call.professorName);
+                } else {
+                    showCalledModal(call.professorName);
+                }
+            }
+        });
+        AppState.callListenerRef = callsQuery;
+    }
+
+    function checkIfCalled(profId) {
+        const student = AppState.currentUser;
+        
+        db.ref('calls')
+            .orderByChild('studentId')
+            .equalTo(student.id)
+            .once('value', (snap) => {
+                let wasCalled = false;
+                let callProfessor = '';
+                let wasRemoved = false;
+                
+                snap.forEach((child) => {
+                    const call = child.val();
+                    if (call.professorId === profId && (Date.now() - call.timestamp < 300000)) {
+                        if (call.action === 'removed') {
+                            wasRemoved = true;
+                        } else {
+                            wasCalled = true;
+                        }
+                        callProfessor = call.professorName;
+                        child.ref.update({ read: true });
+                    }
+                });
+                
+                // Clean up
+                if (AppState.queueListenerRef) {
+                    AppState.queueListenerRef.off();
+                    AppState.queueListenerRef = null;
+                }
+                if (AppState.callListenerRef) {
+                    AppState.callListenerRef.off();
+                    AppState.callListenerRef = null;
+                }
+                
+                // Clear student data
+                student.currentQueue = null;
+                AppState.currentStudentProf = null;
+                saveStudentData({ currentQueue: null, queuePosition: null });
+                
+                if (wasCalled) {
+                    showCalledModal(callProfessor);
+                } else if (wasRemoved) {
+                    showRemovedModal(callProfessor);
+                } else {
+                    showScreen('dash');
+                }
+            });
+    }
+
+    function updateTrackingDisplay() {
+        const student = AppState.currentUser;
+        const profId = AppState.currentStudentProf;
+        if (!student || !profId) return;
+        
+        const queue = AppState.studentQueue[profId] || [];
+        const position = queue.findIndex(s => s.studentId === student.id) + 1;
+        
+        const trackPosition = document.getElementById('track-position');
+        if (trackPosition) trackPosition.textContent = position || '--';
+    }
+
+    // ========== SUBMISSIONS ==========
+    function renderSubmissionsList() {
+        const container = document.getElementById('submissions-list');
+        if (!container) return;
+        
+        const submissions = AppState.studentSubmissions;
+        
+        if (submissions.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8 bg-white rounded-xl shadow">No submissions yet</p>';
+            document.getElementById('total-submissions').textContent = '0';
+            document.getElementById('claimed-submissions').textContent = '0';
+            document.getElementById('pending-submissions').textContent = '0';
+            document.getElementById('unclaimed-submissions').textContent = '0';
+            return;
+        }
+        
+        const sorted = [...submissions].sort((a, b) => b.timestamp - a.timestamp);
+        
+        container.innerHTML = sorted.map(s => {
+            const isClaimed = !!s.claimedTime;
+            const isUnclaimed = !!s.unclaimed;
+            
+            let statusClass, statusText, statusIcon;
+            if (isClaimed) {
+                statusClass = 'status-claimed';
+                statusText = 'Claimed';
+                statusIcon = '<i class="fas fa-check-circle mr-1"></i>';
+            } else if (isUnclaimed) {
+                statusClass = 'status-unclaimed';
+                statusText = 'Unclaimed';
+                statusIcon = '<i class="fas fa-exclamation-triangle mr-1"></i>';
+            } else {
+                statusClass = 'status-pending';
+                statusText = 'Pending';
+                statusIcon = '<i class="fas fa-hourglass-half mr-1"></i>';
+            }
+            
+            // Determine drawer expiry info
+            let drawerExpiryInfo = '';
+            if (!isClaimed && !isUnclaimed && s.drawerExpiry) {
+                drawerExpiryInfo = `<p class="text-xs text-orange-500 mt-1"><i class="fas fa-clock mr-1"></i>Drawer expires: ${formatDateTime(s.drawerExpiry)}</p>`;
+            }
+            
+            return `
+                <div class="submission-card">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-semibold text-gray-800">
+                                <i class="fas fa-user-tie mr-2 text-[#35408E]"></i>${s.professorName || 'Unknown Professor'}
+                            </p>
+                            <p class="text-sm text-gray-600 ml-6">
+                                <i class="fas fa-archive mr-1"></i>Drawer #${s.drawerId}
+                            </p>
+                        </div>
+                        <span class="${statusClass}">${statusIcon} ${statusText}</span>
+                    </div>
+                    <div class="ml-6 space-y-1 text-xs text-gray-500">
+                        <p><i class="far fa-clock mr-1"></i>Submitted: ${formatDateTime(s.timestamp)}</p>
+                        ${drawerExpiryInfo}
+                        ${isClaimed ? `<p class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Claimed: ${formatDateTime(s.claimedTime)}</p>` : ''}
+                                                ${isUnclaimed ? `
+                            <p class="text-red-600"><i class="fas fa-times-circle mr-1"></i>Marked unclaimed: ${formatDateTime(s.unclaimedTime)}</p>
+                            <p class="text-red-500 text-xs mt-1"><i class="fas fa-hand-pointer mr-1"></i>Please coordinate with your professor</p>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        const claimed = submissions.filter(s => s.claimedTime).length;
+        const unclaimed = submissions.filter(s => !s.claimedTime && s.unclaimed).length;
+        const pending = submissions.length - claimed - unclaimed;
+        
+        document.getElementById('total-submissions').textContent = submissions.length;
+        document.getElementById('claimed-submissions').textContent = claimed;
+        document.getElementById('pending-submissions').textContent = pending;
+        document.getElementById('unclaimed-submissions').textContent = unclaimed;
+
+        // Show/hide unclaimed notice
+        const unclaimedNotice = document.getElementById('unclaimed-notice');
+        if (unclaimedNotice) {
+            if (unclaimed > 0) {
+                unclaimedNotice.classList.remove('hidden');
+            } else {
+                unclaimedNotice.classList.add('hidden');
+            }
+        }
+    }
+
+    // ========== RENDER ALL STUDENT QUEUES ==========
+    function renderAllStudentQueues() {
+        const container = document.getElementById('all-queues-list');
+        if (!container) return;
+        
+        const student = AppState.currentUser;
+        const studentName = student?.name;
+        const studentId = student?.id;
+        const activeQueues = [];
+        
+        Object.keys(AppState.studentQueue).forEach(profId => {
+            const queue = AppState.studentQueue[profId] || [];
+            const position = queue.findIndex(s => s.studentId === studentId) + 1;
+            
+            if (position > 0) {
+                const prof = AppState.professors.find(p => p.id === profId);
+                if (prof) {
+                    const active = prof.consultations?.find(c => c.endTime > Date.now());
+                    activeQueues.push({ 
+                        profId, 
+                        profName: prof.name, 
+                        position, 
+                        totalInQueue: queue.length,
+                        endTime: active?.endTime
+                    });
+                }
+            }
+        });
+        
+        if (activeQueues.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8 bg-white rounded-xl shadow">You are not in any queues.</p>';
+            return;
+        }
+        
+        container.innerHTML = activeQueues.map(q => `
+            <div class="bg-white p-5 rounded-xl shadow-md border">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-lg">${q.profName}</p>
+                        <p class="text-sm text-gray-600">Position: ${q.position} of ${q.totalInQueue}</p>
+                        ${q.endTime ? `<p class="text-xs text-gray-500">Consultation ends: ${formatShortTime(new Date(q.endTime))}</p>` : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="view-single-queue-btn bg-blue-100 text-blue-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-blue-200" data-profid="${q.profId}">
+                            <i class="fas fa-eye mr-1"></i>View
+                        </button>
+                        <button class="leave-single-queue-btn bg-red-100 text-red-600 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-red-200" data-profid="${q.profId}" data-profname="${q.profName}">
+                            <i class="fas fa-times mr-1"></i>Leave
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        // View button - go to tracking screen
+        document.querySelectorAll('.view-single-queue-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const profId = btn.dataset.profid;
+                AppState.currentStudentProf = profId;
+                showScreen('queueTrack');
+            });
+        });
+        
+        // Leave button
+        document.querySelectorAll('.leave-single-queue-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const profId = btn.dataset.profid;
+                const profName = btn.dataset.profname;
+                
+                showConfirmationModal('Confirmation', `Leave queue for ${profName}?`, async () => {
+                    if (AppState.studentQueue[profId]) {
+                        AppState.studentQueue[profId] = AppState.studentQueue[profId].filter(s => s.studentId !== studentId);
+                        await db.ref(`queues/${profId}`).set(AppState.studentQueue[profId]);
+                        
+                        if (student?.isPersistent) {
+                            await db.ref(`students/${student.id}/currentQueues/${profId}`).set(null);
+                        }
+                        
+                        if (AppState.currentStudentProf === profId) {
+                            AppState.currentStudentProf = null;
+                        }
+                        
+                        renderAllStudentQueues();
+                        showActionCompleteModal(`Left queue for ${profName}.`);
+                    }
+                });
+            });
+        });
+    }
+
+    // ========== CLEAR SUBMISSION HISTORY ==========
+    async function clearSubmissionHistory() {
+        const studentId = AppState.currentUser?.id;
+        if (!studentId) return;
+        
+        // Keep only pending submissions (not claimed, not unclaimed)
+        const pendingSubs = AppState.studentSubmissions.filter(s => !s.claimedTime && !s.unclaimed);
+        
+        // Update Firebase and local state
+        AppState.studentSubmissions = pendingSubs;
+        await db.ref(`students/${studentId}/submissions`).set(pendingSubs);
+        
+        // Refresh the UI
+        if (Screens.submissions?.classList.contains('active')) {
+            renderSubmissionsList();
+        }
+        updateDashboardDisplay();
+    }
+
+    // ========== LEAVE QUEUE ==========
+    async function leaveQueue() {
+        const student = AppState.currentUser;
+        const profId = AppState.currentStudentProf;
+        
+        if (!profId || !AppState.studentQueue[profId]) {
+            showAlertModal('Error', 'You are not in a queue.', 2);
+            showScreen('dash');
+            return;
+        }
+        
+        const prof = AppState.professors.find(p => p.id === profId);
+        const profName = prof?.name || 'this professor';
+        
+        showConfirmationModal('Leave Queue', `Are you sure you want to leave the queue for ${profName}?`, async () => {
+            // Remove from queue
+            AppState.studentQueue[profId] = AppState.studentQueue[profId].filter(s => s.studentId !== student.id);
+            
+            await db.ref(`queues/${profId}`).set(AppState.studentQueue[profId]);
+            
+            // Clear from student record if this was the tracked queue
+            if (student.currentQueue === profId) {
+                await saveStudentData({ currentQueue: null, queuePosition: null });
+                student.currentQueue = null;
+            }
+            
+            AppState.currentStudentProf = null;
+            
+            // Clean up listeners
+            if (AppState.positionCheckInterval) {
+                clearInterval(AppState.positionCheckInterval);
+                AppState.positionCheckInterval = null;
+            }
+            if (AppState.queueListenerRef) {
+                AppState.queueListenerRef.off();
+                AppState.queueListenerRef = null;
+            }
+            if (AppState.callListenerRef) {
+                AppState.callListenerRef.off();
+                AppState.callListenerRef = null;
+            }
+            
+            showActionCompleteModal(`You have left the queue for ${profName}.`);
+        });
+    }
+
+    // ========== EVENT LISTENERS ==========
+    function setupEventListeners() {
+    document.getElementById('view-queue-status-btn')?.addEventListener('click', () => {
+        // Find all active queues
+        const activeQueues = [];
+        Object.keys(AppState.studentQueue).forEach(profId => {
+            const queue = AppState.studentQueue[profId] || [];
+            const position = queue.findIndex(s => s.studentId === AppState.currentUser?.id) + 1;
+            if (position > 0) {
+                activeQueues.push({ profId, position });
+            }
+        });
+        
+        if (activeQueues.length === 0) {
+            showAlertModal('Not in Queue', 'You are not currently in any queue. Visit a Kiosk to join a queue.', 3);
+            return;
+        }
+        
+        if (activeQueues.length === 1) {
+            // Only one queue - go directly to tracking
+            AppState.currentStudentProf = activeQueues[0].profId;
+            showScreen('queueTrack');
+        } else {
+            // Multiple queues - show the Active Queues screen
+            renderAllStudentQueues();
+            showScreen('allQueues');
+        }
+    });
+        
+        document.getElementById('view-submissions-btn')?.addEventListener('click', () => showScreen('submissions'));
+        
+        document.getElementById('back-to-dash-from-tracking')?.addEventListener('click', () => showScreen('dash'));
+        document.getElementById('back-to-dash-from-all-queues')?.addEventListener('click', () => showScreen('dash'));
+        document.getElementById('back-to-dash-from-submissions')?.addEventListener('click', () => showScreen('dash'));
+        
+        document.getElementById('leave-queue-btn')?.addEventListener('click', leaveQueue);
+        
+        document.getElementById('student-refresh-position-btn')?.addEventListener('click', () => {
+            const icon = document.getElementById('student-refresh-icon');
+            icon?.classList.add('refresh-icon');
+            updateTrackingDisplay();
+            setTimeout(() => icon?.classList.remove('refresh-icon'), 1000);
+        });
+        
+        document.getElementById('refresh-submissions-btn')?.addEventListener('click', async () => {
+            const icon = document.getElementById('submissions-refresh-icon');
+            icon?.classList.add('refresh-icon');
+            await loadStudentSubmissions();
+            setTimeout(() => icon?.classList.remove('refresh-icon'), 1000);
+        });
+
+        document.getElementById('clear-submissions-btn')?.addEventListener('click', () => {
+            // Count how many will be removed
+            const toRemove = AppState.studentSubmissions.filter(s => s.claimedTime || s.unclaimed).length;
+            if (toRemove === 0) {
+                showAlertModal('Nothing to clear', 'You have no claimed or unclaimed submissions to remove.', 3);
+                return;
+            }
+            showConfirmationModal('Clear History', 
+                `Remove ${toRemove} completed/expired submission(s)? Pending submissions will stay.`,
+                clearSubmissionHistory
+            );
+        });
+        
+        document.getElementById('alert-modal-close')?.addEventListener('click', () => {
+            document.getElementById('alert-modal').classList.add('hidden');
+        });
+        document.getElementById('alert-modal-ok')?.addEventListener('click', () => {
+            document.getElementById('alert-modal').classList.add('hidden');
+        });
+        
+        // Close modals when clicking outside
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
+        });
+    }
+
+    // ========== INIT ==========
+    async function init() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const studentId = urlParams.get('studentId');
+        const action = urlParams.get('action');
+        
+        if (action === 'studentWebLogin' && studentId) {
+            loadData();
+            
+            const snap = await db.ref(`students/${studentId}`).once('value');
+            const studentData = snap.val();
+            
+            if (studentData) {
+                AppState.currentUser = {
+                    role: 'student',
+                    id: studentId,
+                    name: studentData.name,
+                    currentQueue: studentData.currentQueue,
+                    queuePosition: studentData.queuePosition
+                };
+                
+                await loadStudentSubmissions();
+                setupEventListeners();
+                
+                // ========== GLOBAL CALLS LISTENER ==========
+                const globalCallsRef = db.ref('calls');
+                globalCallsRef.on('child_added', (snap) => {
+                    const call = snap.val();
+                    
+                    // Only act if the call is for THIS student
+                    if (!call || call.studentId !== studentId) return;
+                    if (call.read) return;
+                    if (Date.now() - call.timestamp > 300000) return;
+                    
+                    snap.ref.update({ read: true });
+                    
+                    console.log(`📞 Global call received:`, call);
+                    
+                    // Clean up any existing tracking listeners
+                    if (AppState.queueListenerRef) {
+                        AppState.queueListenerRef.off();
+                        AppState.queueListenerRef = null;
+                    }
+                    if (AppState.callListenerRef) {
+                        AppState.callListenerRef.off();
+                        AppState.callListenerRef = null;
+                    }
+                    
+                    // Clear student data
+                    AppState.currentUser.currentQueue = null;
+                    AppState.currentStudentProf = null;
+                    saveStudentData({ currentQueue: null, queuePosition: null });
+                    
+                    // Show appropriate modal (works on any screen)
+                    if (call.action === 'removed') {
+                        showRemovedModal(call.professorName);
+                    } else {
+                        showCalledModal(call.professorName);
+                    }
+                });
+                
+                if (studentData.currentQueue) {
+                    const queueSnap = await db.ref(`queues/${studentData.currentQueue}`).once('value');
+                    const queue = queueSnap.val() || [];
+                    const stillInQueue = queue.some(s => s.studentId === studentId);
+                    
+                    if (stillInQueue) {
+                        AppState.currentStudentProf = studentData.currentQueue;
+                    } else {
+                        await saveStudentData({ currentQueue: null, queuePosition: null });
+                        AppState.currentUser.currentQueue = null;
+                    }
+                }
+                
+                showScreen('dash');
+            } else {
+                showAlertModal('Error', 'Student not found. Please register at a Kiosk first.', 5);
+            }
+        } else {
+            showAlertModal('Error', 'Invalid access. Please scan QR code from Kiosk.', 5);
+        }
+    }
+
+    init();
+})();
+</script>
+</div>
+</body>
+</html>

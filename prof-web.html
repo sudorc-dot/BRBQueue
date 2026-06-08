@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BRBQueue · Professor Web</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #35408E 0%, #1F2A6E 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .card-shadow { box-shadow: 0 20px 40px rgba(53, 64, 142, 0.25), 0 8px 16px rgba(53, 64, 142, 0.15); }
+        
+        .screen-transition {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .screen-transition.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(53, 64, 142, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.25s ease-out;
+        }
+        
+        .modal-card {
+            max-width: 500px;
+            width: 90%;
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.75rem;
+            box-shadow: 0 25px 50px rgba(53, 64, 142, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .refresh-icon { animation: spin 1s linear infinite; display: inline-block; }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #35408E, #2a3370);
+            color: white;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2a3370, #1F2A6E);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(53, 64, 142, 0.3);
+        }
+        
+        .btn-accent {
+            background: linear-gradient(135deg, #FFCA2C, #FFB300);
+            color: #1a1a1a;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-accent:hover:not(:disabled) {
+            background: linear-gradient(135deg, #FFB300, #FFA000);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(255, 202, 44, 0.3);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #35408E;
+            color: #35408E;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-outline:hover:not(:disabled) {
+            background: #35408E;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        /* Time Picker Styles */
+        .digit-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .time-spinner-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: #35408E;
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            user-select: none;
+        }
+        .time-spinner-btn:hover {
+            background: #2a3370;
+            transform: scale(1.1);
+        }
+        .time-spinner-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .ampm-btn {
+            padding: 0.5rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid #e5e7eb;
+            background: #e5e7eb;
+            color: #9ca3af;
+        }
+        .ampm-btn.active {
+            background: #35408E;
+            color: white;
+            border-color: #35408E;
+        }
+        .ampm-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-entertained { background: #10b981; color: white; }
+        .status-not-entertained { background: #f59e0b; color: white; }
+        
+        .queue-item {
+            transition: all 0.2s;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .history-item {
+            border-left: 4px solid #6b7280;
+            transition: all 0.2s;
+        }
+        .history-item.entertained { border-left-color: #10b981; }
+        .history-item.not-entertained { border-left-color: #f59e0b; }
+        
+        .schedule-highlight {
+            background: linear-gradient(135deg, #e8eaff, #d1d9ff);
+            border-left: 6px solid #FFCA2C;
+        }
+        
+        .prof-department-badge {
+            background: linear-gradient(135deg, #35408E, #5a68b8);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+
+        /* scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #35408E; border-radius: 10px; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<div id="app-container" class="bg-white rounded-2xl card-shadow w-full max-w-5xl p-6 lg:p-10 relative overflow-hidden">
+
+    <!-- ==================== LOADING SCREEN ==================== -->
+    <section id="loading-screen" class="screen-transition active">
+        <div class="text-center py-16">
+            <i class="fas fa-spinner fa-spin text-5xl text-[#35408E] mb-4"></i>
+            <h2 class="text-2xl font-bold text-[#35408E]">Loading...</h2>
+            <p class="text-gray-600 mt-2">Please wait</p>
+        </div>
+    </section>
+
+    <!-- ==================== PROFESSOR WEB DASHBOARD ==================== -->
+    <section id="prof-web-dashboard" class="screen-transition hidden">
+        <div class="text-center mb-6">
+            <h2 class="text-3xl font-bold text-[#35408E] mb-2">Professor Dashboard</h2>
+            <p class="text-gray-600">Welcome, <span id="prof-name-display" class="font-semibold text-[#35408E]"></span></p>
+            <p class="mt-2"><span class="prof-department-badge" id="prof-department-display">SET Department | Computer Engineering</span></p>
+        </div>
+
+        <!-- Drawer Management Section -->
+        <div class="max-w-3xl mx-auto mb-6 bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#35408E]">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-archive mr-2 text-[#35408E]"></i>Drawer Management
+            </h3>
+            <button id="prof-reserve-drawer-btn" class="w-full flex items-center justify-center gap-3 p-5 btn-primary rounded-xl">
+                <i class="fas fa-box-open text-2xl"></i>
+                <span class="text-lg font-semibold">Reserve Drawer</span>
+            </button>
+        </div>
+
+        <!-- Consultation Hours Section -->
+        <div class="max-w-3xl mx-auto mb-6 bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#FFCA2C]">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-clock mr-2 text-[#FFCA2C]"></i>Consultation Hours
+            </h3>
+            <button id="prof-schedule-hours-btn" class="w-full btn-accent font-bold py-4 rounded-xl text-lg mb-4">
+                <i class="fas fa-calendar-alt mr-2"></i>Schedule Consultation Hours
+            </button>
+            <div id="prof-schedule" class="p-4 bg-white rounded-xl border border-gray-200 schedule-highlight">
+                <h4 class="font-semibold text-gray-700 mb-3">Your Active Schedule:</h4>
+                <div id="schedule-list" class="text-sm space-y-2 max-h-36 overflow-y-auto">
+                    <p class="text-gray-500 italic">No active consultations</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue Management Section -->
+        <div class="max-w-3xl mx-auto bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#35408E]">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                <i class="fas fa-users mr-2 text-[#35408E]"></i>Queue Management
+            </h3>
+            <button id="prof-go-to-queue-btn" class="w-full btn-primary font-bold py-4 rounded-xl text-lg">
+                <i class="fas fa-arrow-right mr-2"></i>Go to Queue Management
+            </button>
+        </div>
+
+        <!-- NO LOGOUT BUTTON - REMOVED -->
+    </section>
+
+    <!-- ==================== QUEUE MANAGEMENT ==================== -->
+    <section id="prof-queue-management" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-2">Queue Management</h2>
+        <p class="text-center text-gray-500 mb-6">
+            Professor: <span id="manage-prof-name" class="font-semibold text-[#35408E]"></span>
+        </p>
+        
+        <div class="max-w-2xl mx-auto space-y-6">
+            <!-- Current Queue -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#35408E]">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Current Queue</h3>
+                    <div class="bg-[#35408E] text-white py-1.5 px-4 rounded-full text-sm font-medium">
+                        <span id="queue-count">0</span> waiting
+                    </div>
+                </div>
+                
+                <div id="queue-list" class="space-y-3 max-h-80 overflow-y-auto mb-4">
+                    <p class="text-center text-gray-500 py-8">Loading queue...</p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="call-next-btn" class="flex-1 btn-accent font-bold py-3 rounded-xl text-base">
+                        <i class="fas fa-user-check mr-2"></i>Call Next Student
+                    </button>
+                    <button id="refresh-queue-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-5 rounded-xl transition-all">
+                        <i class="fas fa-sync-alt" id="refresh-icon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Consultation History -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-md border-l-4 border-[#6b7280]">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-history mr-2 text-gray-600"></i>Consultation History
+                    </h3>
+                    <button id="clear-history-btn" class="text-sm text-red-500 hover:text-red-700 transition">
+                        <i class="fas fa-trash-alt mr-1"></i>Clear
+                    </button>
+                </div>
+                
+                <div id="history-list" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-center text-gray-500 py-4">No history yet</p>
+                </div>
+            </div>
+            
+            <button id="back-to-prof-dash-from-queue" class="w-full btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+            <!-- ==================== SCHEDULE CONSULTATION HOURS ==================== -->
+    <section id="prof-schedule-hours-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6">
+            <i class="fas fa-clock mr-2 text-[#FFCA2C]"></i> Schedule Consultation Hours
+        </h2>
+        
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-lg border border-gray-200 mb-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-calendar-alt text-[#FFCA2C]"></i>
+                    Set Consultation Time
+                </h3>
+
+                <!-- Quick Add Duration Buttons -->
+                <div class="grid grid-cols-4 gap-3 mb-6">
+                    <button class="add-consult-duration btn-primary py-3 rounded-xl text-sm font-semibold" data-min="15">+15 min</button>
+                    <button class="add-consult-duration btn-primary py-3 rounded-xl text-sm font-semibold" data-min="30">+30 min</button>
+                    <button class="add-consult-duration btn-primary py-3 rounded-xl text-sm font-semibold" data-min="45">+45 min</button>
+                    <button class="add-consult-duration btn-primary py-3 rounded-xl text-sm font-semibold" data-min="60">+60 min</button>
+                </div>
+                
+                <!-- Undo/Clear -->
+                <div class="flex gap-3 mb-6">
+                    <button id="consult-undo" class="flex-1 bg-gray-600 text-white py-2.5 rounded-xl hover:bg-gray-700 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-undo"></i> Undo
+                    </button>
+                    <button id="consult-clear" class="flex-1 bg-red-500 text-white py-2.5 rounded-xl hover:bg-red-600 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-trash-alt"></i> Clear
+                    </button>
+                </div>
+                
+                <!-- Time Inputs - SPINNERS ON TOP AND BOTTOM -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    
+                    <!-- START TIME PICKER -->
+                    <div class="p-5 border-2 border-[#35408E] rounded-xl bg-white">
+                        <label class="block text-sm font-semibold text-gray-700 mb-4 text-center">Start Time</label>
+                        
+                        <!-- Hour and Minute side by side -->
+                        <div class="flex items-center justify-center gap-6">
+                            <!-- HOUR Column -->
+                            <div class="flex flex-col items-center">
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="start-hour" data-dir="1" type="button">▲</button>
+                                <span class="digit-display text-4xl font-bold font-mono w-16 text-center my-2" id="start-hour">12</span>
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="start-hour" data-dir="-1" type="button">▼</button>
+                                <span class="text-xs text-gray-500 mt-1">Hour</span>
+                            </div>
+                            
+                            <!-- COLON -->
+                            <span class="text-3xl font-bold text-gray-400 self-center mb-6">:</span>
+                            
+                            <!-- MINUTE Column -->
+                            <div class="flex flex-col items-center">
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="start-minute" data-dir="1" type="button">▲</button>
+                                <span class="digit-display text-4xl font-bold font-mono w-16 text-center my-2" id="start-minute">00</span>
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="start-minute" data-dir="-1" type="button">▼</button>
+                                <span class="text-xs text-gray-500 mt-1">Minute</span>
+                            </div>
+                        </div>
+                        
+                        <!-- AM/PM Buttons -->
+                        <div class="flex justify-center gap-4 mt-4">
+                            <button class="ampm-btn px-6 py-2 rounded-full font-bold border-2" id="start-am-btn" type="button">AM</button>
+                            <button class="ampm-btn px-6 py-2 rounded-full font-bold border-2" id="start-pm-btn" type="button">PM</button>
+                        </div>
+                    </div>
+                    
+                    <!-- END TIME PICKER -->
+                    <div class="p-5 border-2 border-[#FFCA2C] rounded-xl bg-white">
+                        <label class="block text-sm font-semibold text-gray-700 mb-4 text-center">End Time</label>
+                        
+                        <!-- Hour and Minute side by side -->
+                        <div class="flex items-center justify-center gap-6">
+                            <!-- HOUR Column -->
+                            <div class="flex flex-col items-center">
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="end-hour" data-dir="1" type="button">▲</button>
+                                <span class="digit-display text-4xl font-bold font-mono w-16 text-center my-2" id="end-hour">12</span>
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="end-hour" data-dir="-1" type="button">▼</button>
+                                <span class="text-xs text-gray-500 mt-1">Hour</span>
+                            </div>
+                            
+                            <!-- COLON -->
+                            <span class="text-3xl font-bold text-gray-400 self-center mb-6">:</span>
+                            
+                            <!-- MINUTE Column -->
+                            <div class="flex flex-col items-center">
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="end-minute" data-dir="1" type="button">▲</button>
+                                <span class="digit-display text-4xl font-bold font-mono w-16 text-center my-2" id="end-minute">30</span>
+                                <button class="time-spinner-btn w-10 h-10 rounded-lg bg-[#35408E] text-white font-bold text-lg flex items-center justify-center" data-target="end-minute" data-dir="-1" type="button">▼</button>
+                                <span class="text-xs text-gray-500 mt-1">Minute</span>
+                            </div>
+                        </div>
+                        
+                        <!-- AM/PM Buttons -->
+                        <div class="flex justify-center gap-4 mt-4">
+                            <button class="ampm-btn px-6 py-2 rounded-full font-bold border-2" id="end-am-btn" type="button">AM</button>
+                            <button class="ampm-btn px-6 py-2 rounded-full font-bold border-2" id="end-pm-btn" type="button">PM</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Duration Display -->
+                <div class="bg-blue-50 p-4 rounded-xl mb-0">
+                    <div class="flex justify-between items-center text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-600 font-medium">Duration:</span>
+                            <span id="duration-calc" class="font-mono font-bold text-[#35408E] text-lg">30m</span>
+                        </div>
+                        <div class="text-gray-300">|</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-600 font-medium">Current Time:</span>
+                            <span id="current-time-display" class="font-mono font-bold text-gray-700">--:--:--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conflict Warning -->
+                <div id="schedule-conflict-warning" class="hidden my-4 p-4 bg-red-100 text-red-800 rounded-xl border border-red-400 text-sm">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <span id="conflict-message"></span>
+                </div>
+                
+                <!-- Schedule Button -->
+                <button id="consult-confirm-btn" class="w-full btn-accent font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2 mb-6">
+                    <i class="fas fa-check-circle"></i> Schedule Consultation
+                </button>
+            </div>
+            
+            <!-- Active Schedules - Takes remaining space -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl shadow-lg border border-gray-200 flex-1">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-list-ul text-[#35408E]"></i>
+                    Active Schedules
+                </h3>
+                <div id="active-schedules-list" class="overflow-y-auto space-y-2" style="min-height: 250px;">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-calendar-day text-4xl mb-2 opacity-50"></i>
+                        <p>No active schedules</p>
+                    </div>
+                </div>
+            </div>
+        
+        <div class="text-center mt-6">
+            <button id="back-to-prof-dashboard-schedule" class="btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+    <!-- ==================== RESERVE DRAWER SCREEN ==================== -->
+    <section id="prof-reserve-screen" class="screen-transition hidden">
+        <h2 class="text-3xl font-bold text-center text-[#35408E] mb-6">
+            <i class="fas fa-box-open mr-2"></i> Reserve a Drawer
+        </h2>
+        
+        <div class="max-w-3xl mx-auto">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-lg font-semibold text-gray-700">Available Drawers</p>
+                <p id="available-drawers-count" class="bg-green-100 text-green-800 py-1.5 px-4 rounded-full text-sm font-medium">0 available</p>
+            </div>
+            <div id="drawers-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <div class="text-center mt-8">
+            <button id="back-to-prof-dashboard-reserve" class="btn-outline font-bold py-3 px-6 rounded-xl">
+                <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+            </button>
+        </div>
+    </section>
+
+    <!-- ==================== MODALS ==================== -->
+    <div id="reserve-drawer-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 class="text-2xl font-bold mb-4 text-[#35408E]">
+                Reserve Drawer <span id="modal-drawer-number"></span>
+            </h3>
+            
+            <div class="mb-4">
+                <div class="grid grid-cols-4 gap-2 mb-3">
+                    <button class="modal-duration btn-primary py-2.5 rounded-lg text-sm font-semibold" data-min="15">+15</button>
+                    <button class="modal-duration btn-primary py-2.5 rounded-lg text-sm font-semibold" data-min="30">+30</button>
+                    <button class="modal-duration btn-primary py-2.5 rounded-lg text-sm font-semibold" data-min="45">+45</button>
+                    <button class="modal-duration btn-primary py-2.5 rounded-lg text-sm font-semibold" data-min="60">+60</button>
+                </div>
+                
+                <div class="flex gap-2 mb-3">
+                    <button id="modal-undo" class="flex-1 bg-gray-500 text-white py-2 rounded-lg text-sm hover:bg-gray-600 transition">Undo</button>
+                    <button id="modal-clear" class="flex-1 bg-red-400 text-white py-2 rounded-lg text-sm hover:bg-red-500 transition">Clear</button>
+                </div>
+                
+                <div class="mb-3">
+                    <p class="text-sm text-gray-600 mb-2 font-medium">Duration:</p>
+                    <div id="modal-timer" class="text-center bg-gray-100 p-3 rounded-xl text-2xl font-mono border-2 border-gray-300">00:00:00</div>
+                </div>
+                
+                <p class="text-xs text-gray-600 text-center bg-gray-50 p-2 rounded-lg">
+                    Ends at <span id="modal-end-time" class="font-semibold">--:--:--</span>
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="modal-confirm-reserve" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition">Confirm</button>
+                <button id="modal-cancel-reserve" class="flex-1 bg-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-400 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="alert-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="alert-modal-title" class="text-2xl font-bold text-[#35408E]"></h3>
+                <button id="alert-modal-close" class="text-gray-400 hover:text-gray-600 text-2xl transition">&times;</button>
+            </div>
+            <p id="alert-modal-message" class="text-gray-700 mb-6"></p>
+            <button id="alert-modal-ok" class="w-full btn-primary py-3 rounded-xl font-semibold">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 id="confirmation-title" class="text-2xl font-bold mb-4 text-[#35408E]"></h3>
+            <p id="confirmation-message" class="text-gray-700 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirmation-yes" class="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 transition">Confirm</button>
+                <button id="confirmation-no" class="flex-1 bg-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-400 transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="action-complete-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="text-center mb-5">
+                <i class="fas fa-check-circle text-7xl text-green-500 mb-4"></i>
+                <h3 id="action-complete-title" class="text-2xl font-bold text-[#35408E] mb-2">Success!</h3>
+                <p id="action-complete-message" class="text-gray-700 mb-6"></p>
+            </div>
+            <button id="action-complete-ok" class="w-full btn-primary py-3 rounded-xl font-semibold">OK</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ============================================================================
+// BRBQUEUE PROFESSOR WEB APPLICATION
+// ============================================================================
+(function() {
+    'use strict';
+    
+    // ========== FIREBASE CONFIGURATION ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyDVzo0Ypi4xZ3UXI6G3KFnTLEPE5CRN7bM",
+        authDomain: "brbqueue-ebf2f.firebaseapp.com",
+        databaseURL: "https://brbqueue-ebf2f-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "brbqueue-ebf2f",
+        storageBucket: "brbqueue-ebf2f.firebasestorage.app",
+        messagingSenderId: "703549939346",
+        appId: "1:703549939346:web:05a277dae2f13e7e57d04b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    // ========== STATE ==========
+    const AppState = {
+        timePickerState: (() => {
+            const now = new Date();
+            const startH = ((now.getHours() + 11) % 12) + 1;
+            const startM = Math.floor(now.getMinutes() / 5) * 5;
+            const startPM = now.getHours() >= 12;
+            
+            const endDate = new Date(now.getTime() + 30 * 60000);
+            const endH = ((endDate.getHours() + 11) % 12) + 1;
+            const endM = Math.floor(endDate.getMinutes() / 5) * 5;
+            const endPM = endDate.getHours() >= 12;
+            
+            return {
+                startHour: startH,
+                startMinute: startM,
+                startIsPM: startPM,
+                endHour: endH,
+                endMinute: endM,
+                endIsPM: endPM
+            };
+        })(),
+        currentUser: null,
+        professors: [],
+        drawers: [],
+        studentQueue: {},
+        consultationHistory: {},
+        currentTimeUpdater: null,
+        isUpdatingFromLocal: false,
+        modalTotal: 0,
+        currentDrawerId: null,
+        consultStack: [],
+        consultTotal: 0,
+        extendMaxMinutes: 0,
+        isExtending: false
+    };
+
+
+    const Screens = {
+        loading: document.getElementById('loading-screen'),
+        profDash: document.getElementById('prof-web-dashboard'),
+        profReserve: document.getElementById('prof-reserve-screen'),
+        profScheduleHours: document.getElementById('prof-schedule-hours-screen'),
+        profQueueManage: document.getElementById('prof-queue-management')
+    };
+
+    // ========== UTILITIES ==========
+    function formatTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatShortTime(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function showScreen(screenId) {
+        if (AppState.currentTimeUpdater) {
+            clearInterval(AppState.currentTimeUpdater);
+            AppState.currentTimeUpdater = null;
+        }
+        
+        Object.values(Screens).forEach(s => {
+            if (s) { s.classList.remove('active'); s.classList.add('hidden'); }
+        });
+        
+        const target = Screens[screenId];
+        if (target) {
+            target.classList.remove('hidden');
+            setTimeout(() => target.classList.add('active'), 10);
+        }
+        
+        if (screenId === 'profDash') updateProfDashboard();
+        if (screenId === 'profReserve') renderDrawersGrid();
+        if (screenId === 'profQueueManage') {
+            document.getElementById('manage-prof-name').textContent = AppState.currentUser?.name || '';
+            loadQueueData();
+            loadHistoryData();
+        }
+        if (screenId === 'profScheduleHours') setupScheduleHoursScreen();
+    }
+
+    function showAlertModal(title, message) {
+        document.getElementById('alert-modal-title').textContent = title;
+        document.getElementById('alert-modal-message').textContent = message;
+        document.getElementById('alert-modal').classList.remove('hidden');
+    }
+
+    function showConfirmationModal(title, message, onYes) {
+        const modal = document.getElementById('confirmation-modal');
+        document.getElementById('confirmation-title').textContent = title;
+        document.getElementById('confirmation-message').textContent = message;
+        
+        const yesBtn = document.getElementById('confirmation-yes');
+        const noBtn = document.getElementById('confirmation-no');
+        const newYesBtn = yesBtn.cloneNode(true);
+        const newNoBtn = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+        noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+        
+        newYesBtn.addEventListener('click', () => { modal.classList.add('hidden'); if (onYes) onYes(); });
+        newNoBtn.addEventListener('click', () => modal.classList.add('hidden'));
+        modal.classList.remove('hidden');
+    }
+
+    function showActionCompleteModal(message) {
+        document.getElementById('action-complete-message').textContent = message;
+        document.getElementById('action-complete-modal').classList.remove('hidden');
+    }
+
+    // ========== SAVE DATA ==========
+    async function saveData() {
+        if (AppState.isUpdatingFromLocal) return;
+        AppState.isUpdatingFromLocal = true;
+        try {
+            const professorsObj = {};
+            AppState.professors.forEach(prof => { professorsObj[prof.id] = prof; });
+            const drawersObj = {};
+            AppState.drawers.forEach(d => { drawersObj[d.id] = d; });
+            
+            await Promise.all([
+                db.ref('professors').set(professorsObj),
+                db.ref('drawers').set(drawersObj),
+                db.ref('queues').set(AppState.studentQueue),
+                db.ref('consultationHistory').set(AppState.consultationHistory)
+            ]);
+        } catch (e) { console.error('Save failed:', e); }
+        finally { AppState.isUpdatingFromLocal = false; }
+    }
+
+        // ========== CLEAN EXPIRED DATA ==========
+    function cleanExpiredData() {
+        const now = Date.now();
+        let changed = false;
+        
+        // Clean expired drawers
+        AppState.drawers.forEach(d => {
+            if (d.reservedUntil && d.reservedUntil < now && d.reservedByProf) {
+                if (d.submissions && d.submissions.length > 0) {
+                    d.submissions.forEach(async (submission) => {
+                        if (submission.studentId) {
+                            const studentRef = db.ref(`students/${submission.studentId}/submissions`);
+                            const snap = await studentRef.once('value');
+                            const studentSubs = snap.val() || [];
+                            const updatedSubs = studentSubs.map(s => {
+                                if (s.timestamp === submission.timestamp && s.drawerId === d.id) {
+                                    s.unclaimed = true;
+                                }
+                                return s;
+                            });
+                            await studentRef.set(updatedSubs);
+                        }
+                    });
+                }
+                d.reservedByProf = null;
+                d.reservedByName = null;
+                d.reservedUntil = null;
+                d.submissions = [];
+                changed = true;
+                console.log(`🧹 Drawer #${d.id} reservation expired - cleared`);
+            }
+        });
+        
+        // Clean expired consultations
+        AppState.professors.forEach(p => {
+            if (p.consultations && p.consultations.length > 0) {
+                const originalLength = p.consultations.length;
+                p.consultations = p.consultations.filter(c => c.endTime > now);
+                if (p.consultations.length !== originalLength) {
+                    changed = true;
+                    console.log(`🧹 ${p.name}: ${originalLength - p.consultations.length} expired consultations removed`);
+                }
+            }
+        });
+        
+        if (changed) {
+            saveData().then(() => {
+                console.log('💾 Expired data cleaned and saved');
+                if (Screens.profDash?.classList.contains('active')) updateProfDashboard();
+                if (Screens.profScheduleHours?.classList.contains('active')) renderActiveSchedules();
+                if (Screens.profReserve?.classList.contains('active')) renderDrawersGrid();
+            }).catch(e => console.error('Failed to save cleaned data:', e));
+        }
+    }
+
+    // ========== LOAD DATA ==========
+    function loadData() {
+        db.ref('professors').on('value', (snap) => {
+            if (snap.exists()) {
+                AppState.professors = Object.values(snap.val()).map(p => ({
+                    ...p, consultations: p.consultations || []
+                }));
+            }
+            if (Screens.profDash?.classList.contains('active')) updateProfDashboard();
+            if (Screens.profScheduleHours?.classList.contains('active')) renderActiveSchedules();
+            if (Screens.profReserve?.classList.contains('active')) renderDrawersGrid();
+        });
+        
+        db.ref('drawers').on('value', (snap) => {
+            if (snap.exists()) {
+                AppState.drawers = Object.values(snap.val());
+                
+                // Fix missing reservedByName
+                let needsUpdate = false;
+                AppState.drawers.forEach(d => {
+                    if (d.reservedByProf && !d.reservedByName) {
+                        const prof = AppState.professors.find(p => p.id === d.reservedByProf);
+                        if (prof) {
+                            d.reservedByName = prof.name;
+                            needsUpdate = true;
+                        }
+                    }
+                });
+                
+                // Save the fix back to Firebase
+                if (needsUpdate && !AppState.isUpdatingFromLocal) {
+                    const drawersObj = {};
+                    AppState.drawers.forEach(d => { drawersObj[d.id] = d; });
+                    db.ref('drawers').set(drawersObj);
+                }
+            }
+            if (Screens.profReserve?.classList.contains('active')) renderDrawersGrid();
+        });
+        
+        db.ref('queues').on('value', (snap) => {
+            if (!AppState.isUpdatingFromLocal && snap.exists()) {
+                const queues = snap.val();
+                
+                // Clean up any duplicate entries for the same student
+                Object.keys(queues).forEach(profId => {
+                    const queue = queues[profId] || [];
+                    const seen = new Set();
+                    queues[profId] = queue.filter(s => {
+                        if (seen.has(s.studentName)) {
+                            console.log(`Removing duplicate entry for ${s.studentName}`);
+                            return false;
+                        }
+                        seen.add(s.studentName);
+                        return true;
+                    });
+                });
+                
+                AppState.studentQueue = queues;
+            }
+            if (Screens.profQueueManage?.classList.contains('active')) {
+                loadQueueData();
+            }
+        });
+        
+        db.ref('consultationHistory').on('value', (snap) => {
+            if (snap.exists()) AppState.consultationHistory = snap.val();
+            else AppState.consultationHistory = {};
+            if (Screens.profQueueManage?.classList.contains('active')) loadHistoryData();
+        });
+    }
+
+    // ========== DASHBOARD ==========
+    function updateProfDashboard() {
+        const prof = AppState.professors.find(p => p.id === AppState.currentUser?.id);
+        if (!prof) return;
+        
+        // Clean expired consultations
+        if (prof.consultations) {
+            const now = Date.now();
+            const originalLength = prof.consultations.length;
+            prof.consultations = prof.consultations.filter(c => c.endTime > now);
+            if (prof.consultations.length !== originalLength) {
+                saveData();
+                console.log(`🧹 Cleaned ${originalLength - prof.consultations.length} expired consultations`);
+            }
+        }
+        
+        document.getElementById('prof-name-display').textContent = prof.name;
+        document.getElementById('prof-department-display').textContent = 
+            `${prof.department || 'SET Department'} | ${prof.section || 'Computer Engineering'}`;
+        
+        const scheduleDiv = document.getElementById('schedule-list');
+        const now = Date.now();
+        const active = (prof.consultations || []).filter(c => c.endTime > now);
+        
+        if (active.length === 0) {
+            scheduleDiv.innerHTML = '<p class="text-gray-500 italic">No active consultations</p>';
+        } else {
+            scheduleDiv.innerHTML = active.map(c => {
+                return `<p class="text-gray-700 py-1">• ${formatShortTime(new Date(c.startTime))} – ${formatShortTime(new Date(c.endTime))} (${c.duration} min)</p>`;
+            }).join('');
+        }
+    }
+
+    // ========== DRAWERS ==========
+    function renderDrawersGrid() {
+        // Clean expired drawers first
+        const now = Date.now();
+        let cleaned = false;
+        AppState.drawers.forEach(d => {
+            if (d.reservedUntil && d.reservedUntil < now && d.reservedByProf) {
+                d.reservedByProf = null;
+                d.reservedByName = null;
+                d.reservedUntil = null;
+                d.submissions = [];
+                cleaned = true;
+            }
+        });
+        if (cleaned) saveData();
+        
+        const grid = document.getElementById('drawers-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        
+        const available = AppState.drawers.filter(d => !d.reservedByProf).length;
+        document.getElementById('available-drawers-count').textContent = `${available} available`;
+        
+        const orderedDrawers = [];
+        for (let i = 0; i < 3; i++) {
+            orderedDrawers.push(AppState.drawers[i]);
+            orderedDrawers.push(AppState.drawers[i + 3]);
+        }
+        orderedDrawers.forEach(drawer => {
+            const isReserved = !!drawer.reservedByProf;
+            const isMine = isReserved && drawer.reservedByProf === AppState.currentUser?.id;
+
+             // DEBUG - remove later
+            console.log(`Drawer #${drawer.id}:`, {
+                reservedByProf: drawer.reservedByProf,
+                reservedByName: drawer.reservedByName,
+                isReserved: isReserved
+            });
+            
+            let bgColor = isReserved ? (isMine ? 'bg-yellow-50 border-yellow-400' : 'bg-red-50 border-red-400') : 'bg-green-50 border-green-400';
+            let profName = '';
+            if (isReserved) {
+                const prof = AppState.professors.find(p => p.id === drawer.reservedByProf);
+                if (prof) {
+                    profName = prof.name;
+                } else if (drawer.reservedByName) {
+                    profName = drawer.reservedByName;
+                } else if (drawer.reservedByProf) {
+                    profName = 'Loading...';
+                } else {
+                    profName = 'Unknown';
+                }
+            }
+            const statusText = isReserved ? (isMine ? 'Reserved by you' : `Reserved by ${profName}`) : 'Available';
+            
+            const div = document.createElement('div');
+            div.className = `drawer-item p-5 rounded-xl shadow-md text-center flex flex-col items-center border-2 ${bgColor} transition-all`;
+            div.innerHTML = `
+                <i class="fas fa-box text-4xl mb-3 ${isReserved ? 'text-gray-500' : 'text-green-600'}"></i>
+                <h3 class="text-xl font-bold text-gray-800">Drawer #${drawer.id} ${drawer.isFull ? '<span class="text-red-500 text-sm">⚠ FULL</span>' : ''}</h3>
+                <p class="text-sm mb-2 text-gray-600">${statusText}</p>
+                ${isReserved && isMine ? `<p class="text-sm font-medium">Submissions: ${drawer.submissions?.length || 0}</p>` : ''}
+                ${isReserved && drawer.reservedUntil ? 
+                `<p class="text-xs text-gray-500 mt-1">Until: <span>${new Date(drawer.reservedUntil).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}</span><br><span>${formatShortTime(new Date(drawer.reservedUntil))}</span></p>
+                ${drawer.isFull ? '<p class="text-xs text-red-500 font-bold mt-1">⚠ Drawer Full</p>' : ''}`
+                : ''}
+             `;
+            
+            if (!isReserved) {
+                const btn = document.createElement('button');
+                btn.className = 'mt-3 btn-primary text-white py-2 px-5 rounded-lg text-sm font-semibold w-full';
+                btn.textContent = 'Reserve';
+                btn.addEventListener('click', () => openReserveModal(drawer.id));
+                div.appendChild(btn);
+            } else if (isMine) {
+                // EXTEND BUTTON
+                const extendBtn = document.createElement('button');
+                extendBtn.className = 'mt-3 bg-blue-500 hover:bg-blue-600 text-white py-2 px-5 rounded-lg text-sm font-semibold w-full transition mb-2';
+                extendBtn.textContent = 'Extend Time';
+                extendBtn.addEventListener('click', () => openExtendModal(drawer));
+                div.appendChild(extendBtn);
+                
+                // CANCEL BUTTON
+                const btn = document.createElement('button');
+                btn.className = 'mt-2 bg-red-500 hover:bg-red-600 text-white py-2 px-5 rounded-lg text-sm font-semibold w-full transition';
+                btn.textContent = 'Cancel Reservation';
+                btn.addEventListener('click', () => {
+                    showConfirmationModal('Cancel Reservation', `Cancel reservation for Drawer #${drawer.id}?`, async () => {
+                        drawer.reservedByProf = null;
+                        drawer.reservedUntil = null;
+                        drawer.submissions = [];
+                        await saveData();
+                        renderDrawersGrid();
+                        showActionCompleteModal('Drawer reservation cancelled');
+                    });
+                });
+                div.appendChild(btn);
+            }
+            grid.appendChild(div);
+        });
+    }
+
+        function openExtendModal(drawer) {
+        const now = new Date();
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        const currentExpiry = new Date(drawer.reservedUntil);
+        const maxExtendMs = endOfDay.getTime() - currentExpiry.getTime();
+        const maxExtendMinutes = Math.floor(maxExtendMs / 60000);
+        
+        if (maxExtendMinutes <= 0) {
+            showAlertModal('Cannot Extend', 'The reservation already expires at or after the end of today.');
+            return;
+        }
+        
+        AppState.currentDrawerId = drawer.id;
+        AppState.modalTotal = 0;
+        AppState.modalStack = [];
+        document.getElementById('modal-drawer-number').textContent = drawer.id;
+        updateModalTimerDisplay();
+        
+        document.querySelector('#reserve-drawer-modal h3').innerHTML = 
+            'Extend Drawer <span id="modal-drawer-number">' + drawer.id + '</span>';
+        
+        AppState.extendMaxMinutes = maxExtendMinutes;
+        AppState.isExtending = true;
+        
+        document.getElementById('reserve-drawer-modal').classList.remove('hidden');
+    }
+
+    function openReserveModal(drawerId) {
+        AppState.currentDrawerId = drawerId;
+        AppState.modalTotal = 0;
+        AppState.modalStack = [];
+        document.getElementById('modal-drawer-number').textContent = drawerId;
+        updateModalTimerDisplay();
+        document.getElementById('reserve-drawer-modal').classList.remove('hidden');
+    }
+
+    function updateModalTimerDisplay() {
+        const hours = Math.floor(AppState.modalTotal / 60);
+        const minutes = AppState.modalTotal % 60;
+        document.getElementById('modal-timer').textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+        if (AppState.modalTotal > 0) {
+            document.getElementById('modal-end-time').textContent = formatTime(new Date(Date.now() + AppState.modalTotal * 60000));
+        }
+    }
+
+    // ========== QUEUE MANAGEMENT ==========
+    function loadQueueData() {
+        const profId = AppState.currentUser?.id;
+        if (!profId) return;
+        
+        // Use real-time listener instead of just reading once
+        db.ref(`queues/${profId}`).off(); // Remove any existing listener
+        
+        db.ref(`queues/${profId}`).on('value', (snapshot) => {
+            const queue = snapshot.val() || [];
+            const queueList = document.getElementById('queue-list');
+            const queueCount = document.getElementById('queue-count');
+            
+            // Update local state
+            AppState.studentQueue[profId] = queue;
+            
+            if (queueCount) queueCount.textContent = queue.length;
+            if (!queueList) return;
+            
+            if (queue.length === 0) {
+                queueList.innerHTML = '<p class="text-center text-gray-500 py-8">No students in queue.</p>';
+                return;
+            }
+            
+            queueList.innerHTML = queue.map((student, index) => `
+                <div class="queue-item bg-white p-4 rounded-xl shadow border flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold text-lg">${index + 1}. ${student.studentName}</p>
+                        <p class="text-xs text-gray-500">waiting ${Math.floor((Date.now() - student.requestTime) / 60000)} min</p>
+                        <p class="text-xs text-gray-400">ID: ${student.studentId || 'N/A'}</p>
+                    </div>
+                    <button class="remove-student-btn bg-red-100 text-red-600 py-2 px-4 rounded-lg text-sm" data-student="${student.studentName}" data-studentid="${student.studentId || ''}">Remove</button>
+                </div>
+            `).join('');
+            
+            // Re-attach remove button listeners
+                        // Re-attach remove button listeners (with confirmation)
+            document.querySelectorAll('.remove-student-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const studentName = e.currentTarget.dataset.student;
+                    const studentId = e.currentTarget.dataset.studentid;
+                    const profId = AppState.currentUser?.id;
+                    if (!profId) return;
+
+                    showConfirmationModal('Remove Student', `Remove ${studentName} from the queue?`, async () => {
+                        if (AppState.studentQueue[profId]) {
+                            const removed = AppState.studentQueue[profId].find(s => s.studentName === studentName);
+                            if (removed) {
+                                const hist = AppState.consultationHistory[profId] || [];
+                                hist.push({
+                                    studentName: removed.studentName,
+                                    studentId: removed.studentId || 'N/A',
+                                    status: 'Not Entertained',
+                                    timestamp: Date.now(),
+                                    reason: 'Removed by professor'
+                                });
+                                AppState.consultationHistory[profId] = hist;
+                            }
+
+                            AppState.studentQueue[profId] = AppState.studentQueue[profId].filter(s => s.studentName !== studentName);
+                            await saveData();
+
+                            if (studentId) {
+                                await db.ref(`students/${studentId}`).update({
+                                    currentQueue: null,
+                                    queuePosition: null
+                                });
+                                await db.ref(`calls`).push({
+                                    studentName: removed?.studentName || studentName,
+                                    studentId: studentId || '',
+                                    professorName: AppState.currentUser.name,
+                                    professorId: profId,
+                                    timestamp: Date.now(),
+                                    read: false,
+                                    action: 'removed'
+                                });
+                            }
+                            // Reload the queue list
+                            loadQueueData();
+                        }
+                    });
+                });
+            });
+        });  // ← CLOSES the .on('value', ...) callback
+
+        // Also load history
+        loadHistoryData();
+    }  // ← CLOSES the loadQueueData function
+
+    function loadHistoryData() {
+        const profId = AppState.currentUser?.id;
+        const history = AppState.consultationHistory[profId] || [];
+        const historyList = document.getElementById('history-list');
+        if (!historyList) return;
+        
+        if (history.length === 0) {
+            historyList.innerHTML = '<p class="text-center text-gray-500 py-4">No history yet</p>';
+            return;
+        }
+        
+        historyList.innerHTML = [...history].reverse().map(item => `
+            <div class="history-item ${item.status === 'Entertained' ? 'entertained' : 'not-entertained'} bg-white p-3 rounded-lg shadow-sm border mb-2">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">${item.studentName}</p>
+                        <p class="text-xs text-gray-500">ID: ${item.studentId}</p>
+                        <p class="text-xs text-gray-400">${new Date(item.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-medium ${item.status === 'Entertained' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${item.status}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ========== SCHEDULE HOURS ==========
+    function setupScheduleHoursScreen() {
+        // Clean expired consultations before showing
+        const prof = AppState.professors.find(p => p.id === AppState.currentUser?.id);
+        if (prof && prof.consultations) {
+            const now = Date.now();
+            const originalLength = prof.consultations.length;
+            prof.consultations = prof.consultations.filter(c => c.endTime > now);
+            if (prof.consultations.length !== originalLength) {
+                saveData();
+                console.log(`🧹 Cleaned ${originalLength - prof.consultations.length} expired consultations`);
+            }
+        }
+        
+        updateCurrentTime();
+        AppState.currentTimeUpdater = setInterval(updateCurrentTime, 1000);
+        updateTimePickerDisplays();
+        calculateDuration();
+        renderActiveSchedules();
+    }
+
+    function updateCurrentTime() {
+        const display = document.getElementById('current-time-display');
+        if (display) display.textContent = formatTime(new Date());
+    }
+
+    function updateTimePickerDisplays() {
+        const fmt = (n) => (n || 0).toString().padStart(2, '0');
+        const s = AppState.timePickerState;
+        
+        document.getElementById('start-hour').textContent = s.startHour || 12;
+        document.getElementById('start-minute').textContent = fmt(s.startMinute);
+        document.getElementById('end-hour').textContent = s.endHour || 12;
+        document.getElementById('end-minute').textContent = fmt(s.endMinute);
+        
+        // Style AM/PM buttons
+        const startAmBtn = document.getElementById('start-am-btn');
+        const startPmBtn = document.getElementById('start-pm-btn');
+        const endAmBtn = document.getElementById('end-am-btn');
+        const endPmBtn = document.getElementById('end-pm-btn');
+        
+        [startAmBtn, startPmBtn, endAmBtn, endPmBtn].forEach(btn => {
+            if (btn) {
+                btn.classList.remove('active');
+                btn.style.backgroundColor = '#e5e7eb';
+                btn.style.color = '#9ca3af';
+            }
+        });
+        
+        if (startAmBtn && !s.startIsPM) {
+            startAmBtn.style.backgroundColor = '#35408E';
+            startAmBtn.style.color = 'white';
+            startAmBtn.classList.add('active');
+        }
+        if (startPmBtn && s.startIsPM) {
+            startPmBtn.style.backgroundColor = '#35408E';
+            startPmBtn.style.color = 'white';
+            startPmBtn.classList.add('active');
+        }
+        if (endAmBtn && !s.endIsPM) {
+            endAmBtn.style.backgroundColor = '#35408E';
+            endAmBtn.style.color = 'white';
+            endAmBtn.classList.add('active');
+        }
+        if (endPmBtn && s.endIsPM) {
+            endPmBtn.style.backgroundColor = '#35408E';
+            endPmBtn.style.color = 'white';
+            endPmBtn.classList.add('active');
+        }
+        
+        calculateDuration();
+    }
+
+    function getTimeFromPicker(isStart) {
+        const s = AppState.timePickerState;
+        let hour = isStart ? s.startHour : s.endHour;
+        const minute = isStart ? s.startMinute : s.endMinute;
+        const isPM = isStart ? s.startIsPM : s.endIsPM;
+        if (hour === 12) hour = 0;
+        if (isPM) hour += 12;
+        const date = new Date();
+        date.setHours(hour, minute, 0, 0);
+        return date;
+    }
+
+    function calculateDuration() {
+        const start = getTimeFromPicker(true);
+        let end = getTimeFromPicker(false);
+        
+        if (end <= start) end.setDate(end.getDate() + 1);
+        
+        const diffMinutes = Math.round((end - start) / 60000);
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        
+        if (hours > 0) {
+            document.getElementById('duration-calc').textContent = `${hours}h ${minutes}m`;
+        } else {
+            document.getElementById('duration-calc').textContent = `${minutes}m`;
+        }
+        
+        return diffMinutes;
+    }
+
+    function checkTimeConflict(startTime, endTime) {
+        const prof = AppState.professors.find(p => p.id === AppState.currentUser?.id);
+        if (!prof?.consultations) return false;
+        
+        const conflicts = prof.consultations.filter(c => startTime.getTime() < c.endTime && endTime.getTime() > c.startTime);
+        if (conflicts.length) {
+            document.getElementById('conflict-message').textContent = `Overlaps with: ${conflicts.map(c => `${formatShortTime(new Date(c.startTime))}-${formatShortTime(new Date(c.endTime))}`).join(', ')}`;
+            document.getElementById('schedule-conflict-warning').classList.remove('hidden');
+            return true;
+        }
+        document.getElementById('schedule-conflict-warning').classList.add('hidden');
+        return false;
+    }
+
+    function renderActiveSchedules() {
+        const container = document.getElementById('active-schedules-list');
+        const prof = AppState.professors.find(p => p.id === AppState.currentUser?.id);
+        if (!prof) return;
+        
+        const now = Date.now();
+        const active = (prof.consultations || []).filter(c => c.endTime > now).sort((a, b) => a.startTime - b.startTime);
+        
+        if (!active.length) {
+            container.innerHTML = '<div class="text-center text-gray-500 py-8"><i class="fas fa-calendar-day text-4xl mb-3 opacity-50"></i><p>No active schedules</p></div>';
+            return;
+        }
+        
+        container.innerHTML = active.map(c => `
+            <div class="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
+                <div><p class="font-semibold">${new Date(c.startTime).toLocaleDateString()}</p><p class="text-sm">${formatShortTime(new Date(c.startTime))} - ${formatShortTime(new Date(c.endTime))}</p><p class="text-xs">${c.duration} min</p></div>
+                <button class="cancel-schedule-btn bg-red-100 text-red-600 py-2 px-4 rounded-lg text-sm" data-start="${c.startTime}">Cancel</button>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.cancel-schedule-btn').forEach(btn => btn.addEventListener('click', async (e) => {
+            const startTime = parseInt(e.target.dataset.start);
+            showConfirmationModal('Cancel Consultation', 'Cancel this consultation?', async () => {
+                prof.consultations = prof.consultations.filter(c => c.startTime !== startTime);
+                await saveData();
+                renderActiveSchedules();
+                updateProfDashboard();
+                showActionCompleteModal('Consultation cancelled');
+            });
+        }));
+    }
+
+        function updateConsultTimes() {
+        const now = new Date();
+        const start = now;
+        const end = new Date(now.getTime() + (AppState.consultTotal || 0) * 60000);
+        AppState.timePickerState.startHour = ((start.getHours() + 11) % 12) + 1;
+        AppState.timePickerState.startMinute = start.getMinutes();
+        AppState.timePickerState.startIsPM = start.getHours() >= 12;
+        AppState.timePickerState.endHour = ((end.getHours() + 11) % 12) + 1;
+        AppState.timePickerState.endMinute = end.getMinutes();
+        AppState.timePickerState.endIsPM = end.getHours() >= 12;
+        updateTimePickerDisplays();
+        calculateDuration();
+    }
+
+    // ========== EVENT LISTENERS ==========
+    function setupEventListeners() {
+        let isCalling = false;
+        document.getElementById('prof-schedule-hours-btn')?.addEventListener('click', () => showScreen('profScheduleHours'));
+        document.getElementById('prof-reserve-drawer-btn')?.addEventListener('click', () => showScreen('profReserve'));
+        document.getElementById('prof-go-to-queue-btn')?.addEventListener('click', () => showScreen('profQueueManage'));
+        document.getElementById('back-to-prof-dash-from-queue')?.addEventListener('click', () => showScreen('profDash'));
+        document.getElementById('back-to-prof-dashboard-reserve')?.addEventListener('click', () => showScreen('profDash'));
+        document.getElementById('back-to-prof-dashboard-schedule')?.addEventListener('click', () => showScreen('profDash'));
+        
+        document.getElementById('call-next-btn')?.addEventListener('click', async () => {
+            if (isCalling) {
+                console.log('Already calling, please wait...');
+                return;
+            }
+            
+            isCalling = true;
+            const btn = document.getElementById('call-next-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Calling...';
+            btn.disabled = true;
+            
+            try {
+                const profId = AppState.currentUser?.id;
+                if (!profId || !AppState.studentQueue[profId]?.length) {
+                    showAlertModal('No Students', 'Queue is empty');
+                    return;
+                }
+                
+                const called = AppState.studentQueue[profId].shift();
+                AppState.studentQueue[profId].forEach((s, i) => s.position = i + 1);
+                
+                const hist = AppState.consultationHistory[profId] || [];
+                hist.push({
+                    studentName: called.studentName,
+                    studentId: called.studentId || 'N/A',
+                    status: 'Entertained',
+                    timestamp: Date.now()
+                });
+                AppState.consultationHistory[profId] = hist;
+                
+                // IMMEDIATELY clear student's queue data
+                if (called.studentId) {
+                    await db.ref(`students/${called.studentId}`).update({
+                        currentQueue: null,
+                        queuePosition: null,
+                        queueJoinTime: null
+                    });
+                }
+                
+                // Save queue changes
+                await saveData();
+                
+                // Create call notification WITH action type
+                const callId = `call_${Date.now()}`;
+                await db.ref(`calls/${callId}`).set({
+                    studentName: called.studentName,
+                    studentId: called.studentId || '',
+                    professorName: AppState.currentUser.name,
+                    professorId: profId,
+                    timestamp: Date.now(),
+                    read: false,
+                    action: 'called'
+                });
+                
+                setTimeout(() => db.ref(`calls/${callId}`).remove(), 30000);
+                
+                loadQueueData(profId);
+                showActionCompleteModal(`Called ${called.studentName}`, 'profDash');
+                
+            } catch (error) {
+                console.error('Call failed:', error);
+                showAlertModal('Error', 'Failed to call student.');
+            } finally {
+                isCalling = false;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+        
+        document.getElementById('refresh-queue-btn')?.addEventListener('click', () => {
+            const icon = document.getElementById('refresh-icon');
+            icon?.classList.add('refresh-icon');
+            // The queue already has a real-time listener, so just reload history
+            loadHistoryData();
+            setTimeout(() => icon?.classList.remove('refresh-icon'), 1000);
+        });
+        
+        document.getElementById('clear-history-btn')?.addEventListener('click', () => {
+            showConfirmationModal('Clear History', 'Clear all history?', async () => {
+                AppState.consultationHistory[AppState.currentUser?.id] = [];
+                await saveData();
+                loadHistoryData();
+                showAlertModal('Cleared', 'History cleared');
+            });
+        });
+        
+        document.getElementById('alert-modal-close')?.addEventListener('click', () => document.getElementById('alert-modal').classList.add('hidden'));
+        document.getElementById('alert-modal-ok')?.addEventListener('click', () => document.getElementById('alert-modal').classList.add('hidden'));
+        document.getElementById('action-complete-ok')?.addEventListener('click', () => document.getElementById('action-complete-modal').classList.add('hidden'));
+        document.getElementById('modal-cancel-reserve')?.addEventListener('click', () => {
+            document.getElementById('reserve-drawer-modal').classList.add('hidden');
+            document.querySelector('#reserve-drawer-modal h3').innerHTML = 
+                'Reserve Drawer <span id="modal-drawer-number"></span>';
+            AppState.isExtending = false;
+            AppState.modalTotal = 0;
+        });
+                
+        document.querySelectorAll('.modal-duration').forEach(btn => btn.addEventListener('click', (e) => {
+            AppState.modalTotal += parseInt(e.target.dataset.min);
+            updateModalTimerDisplay();
+        }));
+        
+        document.getElementById('modal-undo')?.addEventListener('click', () => { AppState.modalTotal = 0; updateModalTimerDisplay(); });
+        document.getElementById('modal-clear')?.addEventListener('click', () => { AppState.modalTotal = 0; updateModalTimerDisplay(); });
+        
+        document.getElementById('modal-confirm-reserve')?.addEventListener('click', async () => {
+            if (AppState.modalTotal <= 0) { showAlertModal('Error', 'Set a duration'); return; }
+            
+            const drawer = AppState.drawers.find(d => d.id === AppState.currentDrawerId);
+            if (!drawer) return;
+            
+            // EXTENDING an existing reservation
+            if (AppState.isExtending) {
+                if (AppState.modalTotal > AppState.extendMaxMinutes) {
+                    showAlertModal('Cannot Extend', 
+                        'You can only extend by ' + AppState.extendMaxMinutes + ' more minutes today.');
+                    return;
+                }
+                
+                const newExpiry = new Date(drawer.reservedUntil);
+                newExpiry.setMinutes(newExpiry.getMinutes() + AppState.modalTotal);
+                drawer.reservedUntil = newExpiry.getTime();
+                
+                await saveData();
+                document.getElementById('reserve-drawer-modal').classList.add('hidden');
+                document.querySelector('#reserve-drawer-modal h3').innerHTML = 
+                    'Reserve Drawer <span id="modal-drawer-number"></span>';
+                AppState.isExtending = false;
+                renderDrawersGrid();
+                showActionCompleteModal(`Drawer #${AppState.currentDrawerId} extended by ${AppState.modalTotal} minutes!`);
+                return;
+            }
+            
+            // NEW reservation
+            if (!drawer.reservedByProf) {
+                drawer.reservedByProf = AppState.currentUser.id;
+                drawer.reservedByName = AppState.currentUser.name;
+                drawer.reservedUntil = Date.now() + AppState.modalTotal * 60000;
+                drawer.submissions = [];
+                await saveData();
+                document.getElementById('reserve-drawer-modal').classList.add('hidden');
+                renderDrawersGrid();
+                showActionCompleteModal(`Drawer #${AppState.currentDrawerId} reserved!`);
+            }
+        });
+        
+                // Quick add duration buttons
+        document.querySelectorAll('.add-consult-duration').forEach(btn => btn.addEventListener('click', (e) => {
+            const mins = parseInt(e.target.dataset.min);
+            AppState.consultStack.push(mins);
+            AppState.consultTotal += mins;
+            updateConsultTimes();
+        }));
+        
+        document.getElementById('consult-undo')?.addEventListener('click', () => {
+            if (AppState.consultStack.length) {
+                AppState.consultTotal -= AppState.consultStack.pop();
+                if (AppState.consultTotal < 0) AppState.consultTotal = 0;
+                updateConsultTimes();
+            }
+        });
+        
+        document.getElementById('consult-clear')?.addEventListener('click', () => {
+            AppState.consultStack = [];
+            AppState.consultTotal = 0;
+            updateConsultTimes();
+        });
+        
+        // Time picker buttons
+        document.querySelectorAll('.time-spinner-btn').forEach(btn => btn.addEventListener('click', (e) => {
+            const target = e.target.dataset.target;
+            const dir = parseInt(e.target.dataset.dir);
+            const s = AppState.timePickerState;
+            
+            if (target === 'start-hour') {
+                s.startHour = s.startHour + dir;
+                if (s.startHour > 12) s.startHour = 1;
+                if (s.startHour < 1) s.startHour = 12;
+            } else if (target === 'start-minute') {
+                s.startMinute = s.startMinute + dir * 5;
+                if (s.startMinute > 55) s.startMinute = 0;
+                if (s.startMinute < 0) s.startMinute = 55;
+            } else if (target === 'end-hour') {
+                s.endHour = s.endHour + dir;
+                if (s.endHour > 12) s.endHour = 1;
+                if (s.endHour < 1) s.endHour = 12;
+            } else if (target === 'end-minute') {
+                s.endMinute = s.endMinute + dir * 5;
+                if (s.endMinute > 55) s.endMinute = 0;
+                if (s.endMinute < 0) s.endMinute = 55;
+            }
+            
+            updateTimePickerDisplays();
+            calculateDuration();
+            checkTimeConflict(getTimeFromPicker(true), getTimeFromPicker(false));
+        }));
+        
+        document.getElementById('start-am-btn')?.addEventListener('click', () => { AppState.timePickerState.startIsPM = false; updateTimePickerDisplays(); calculateDuration(); });
+        document.getElementById('start-pm-btn')?.addEventListener('click', () => { AppState.timePickerState.startIsPM = true; updateTimePickerDisplays(); calculateDuration(); });
+        document.getElementById('end-am-btn')?.addEventListener('click', () => { AppState.timePickerState.endIsPM = false; updateTimePickerDisplays(); calculateDuration(); });
+        document.getElementById('end-pm-btn')?.addEventListener('click', () => { AppState.timePickerState.endIsPM = true; updateTimePickerDisplays(); calculateDuration(); });
+        
+        document.getElementById('consult-confirm-btn')?.addEventListener('click', async () => {
+            const duration = calculateDuration();
+            if (duration <= 0) { showAlertModal('Error', 'Invalid duration'); return; }
+            
+            const startTime = getTimeFromPicker(true);
+            const endTime = getTimeFromPicker(false);
+            if (endTime <= startTime) endTime.setDate(endTime.getDate() + 1);
+            
+            const prof = AppState.professors.find(p => p.id === AppState.currentUser?.id);
+            if (!prof) return;
+            
+            const hasConflict = checkTimeConflict(startTime, endTime);
+            const addConsultation = async () => {
+                prof.consultations = prof.consultations || [];
+                prof.consultations.push({ startTime: startTime.getTime(), endTime: endTime.getTime(), duration });
+                await saveData();
+                renderActiveSchedules();
+                updateProfDashboard();
+                showActionCompleteModal('Consultation scheduled!');
+            };
+            
+            if (hasConflict) showConfirmationModal('Schedule Conflict', 'Overlaps with existing consultation. Continue?', addConsultation);
+            else showConfirmationModal('Confirm', `Schedule consultation (${duration} minutes)?`, addConsultation);
+        });
+    }
+
+    // ========== INIT ==========
+    async function init() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const profId = urlParams.get('profId');
+        const action = urlParams.get('action');
+        
+        if (action === 'profWebLogin' && profId) {
+            loadData();
+            
+            const checkProf = setInterval(() => {
+                const prof = AppState.professors.find(p => p.id === profId);
+                if (prof) {
+                    clearInterval(checkProf);
+                    AppState.currentUser = { role: 'prof', id: prof.id, name: prof.name };
+                    setupEventListeners();
+                    showScreen('profDash');
+                    // Start periodic cleanup
+                    setInterval(cleanExpiredData, 60000);
+                }
+            }, 200);
+        } else {
+            showAlertModal('Error', 'Invalid access. Please scan QR code from Kiosk.');
+        }
+    }
+
+    init();
+})();
+</script>
+</div>
+</body>
+</html>
